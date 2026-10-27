@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3eb">
+  <title>赛博炒粉 · 3D 科技小店</title>
+  <meta name="description" content="经营好好炒粉小店，让 AI 排单、机器人炒粉、无人机配送，体验堂食与双店经营。免费单机浏览器游戏。">
+  <meta name="application-name" content="赛博炒粉">
+  <meta name="application-version" content="0.1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23d95e38'/%3E%3Cpath d='M12 31h40a20 20 0 01-40 0' fill='%23fff2d4'/%3E%3Cpath d='M22 14v11m10-14v14m10-11v11' stroke='%23fff2d4' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="growth.css">
+  <link rel="stylesheet" href="scene3d.css">
+  <link rel="stylesheet" href="dining.css">
+  <link rel="stylesheet" href="district.css">
+  <link rel="stylesheet" href="branch.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+  <symbol id="i-bowl" viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0Zm5 10h8M8 3v4m4-5v5m4-4v4"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 8h-4a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4H9m3-10v12"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l1 13H4L5 8Zm3 0V6a4 4 0 0 1 8 0v2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="m3 7 9-4 9 4v10l-9 4-9-4V7Zm0 0 9 4 9-4M12 11v10M7.5 5l9 4"/></symbol>
+  <symbol id="i-robot" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="4"/><path d="M12 3v3M1 11v5m22-5v5M9 15h6M8 20v2m8-2v2"/><circle cx="8.5" cy="11" r=".7"/><circle cx="15.5" cy="11" r=".7"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 3v17h17M8 15l4-5 4 2 5-7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="m11 4-5 4H3v8h3l5 4V4Zm4 4a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 2m0 3h.01"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h12l4 4v14H3V3h2Zm2 0v6h10V3M7 21v-8h10v8"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 2 1 9 6 16s15 2 14-13ZM4 21 16 8"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-drone" viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="7" rx="2"/><path d="m8 9-4-4m12 4 4-4M8 14l-4 4m12-4 4 4M9 18h6M12 15v3"/><ellipse cx="4" cy="5" rx="3" ry="1.5"/><ellipse cx="20" cy="5" rx="3" ry="1.5"/><ellipse cx="4" cy="18" rx="3" ry="1.5"/><ellipse cx="20" cy="18" rx="3" ry="1.5"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 5c-2-4-7-2-7 1-4 0-4 6-2 7-2 4 2 7 5 6 1 3 4 2 4 0V5Zm0 0c2-4 7-2 7 1 4 0 4 6 2 7 2 4-2 7-5 6-1 3-4 2-4 0M5 6l3 3m-5 4h4l2 3m10-10-3 3m5 4h-4l-2 3"/></symbol>
+</defs></svg>
+
+<header class="topbar">
+  <a href="#" class="brand" aria-label="赛博炒粉首页，v0.1.0 体验版"><span class="brand-mark"><svg><use href="#i-bowl"/></svg></span><span>赛博炒粉<small>v0.1.0 · 体验版</small></span></a>
+  <nav class="desktop-nav" aria-label="主导航"><span class="nav-item active">小店经营</span><button class="nav-item" data-action="roadmap">成长手册 <span class="tiny-tag">4 阶段</span></button></nav>
+  <div class="top-tools"><span class="save-status" id="save-status"><span class="status-dot"></span>本地存档已就绪</span><button class="icon-button" data-action="sound" id="sound-button" title="开启音效" aria-label="开启音效"><svg><use href="#i-sound"/></svg><span class="sound-off"></span></button><button class="icon-button" data-action="help" title="玩法与存档" aria-label="玩法与存档"><svg><use href="#i-help"/></svg></button></div>
+</header>
+
+<main class="app-shell">
+  <section class="page-intro">
+    <div><p class="eyebrow"><span></span> AI × ROBOT × DRONE · 科技创业模拟</p><h1>一碗粉，飞向未来<span class="orange-dot">。</span></h1><p class="intro-copy">AI 识别需求，机器人掌勺，无人机把热餐送往城市。</p></div>
+    <div class="headline-stats">
+      <div class="stat-icon coins"><svg><use href="#i-coin"/></svg></div><div class="headline-stat"><span>共享现金</span><strong id="cash">¥800<span>.00</span></strong></div>
+      <div class="stat-divider"></div><div class="stat-icon rating"><svg><use href="#i-star"/></svg></div><div class="headline-stat"><span>小店口碑</span><strong id="reputation">80<span>/100</span></strong></div>
+    </div>
+  </section>
+
+  <section class="daybar" aria-label="营业进度">
+    <div class="day-label"><svg><use href="#i-sun"/></svg><strong id="day-label">第 1 天</strong><span id="day-phase">准备营业</span></div>
+    <div class="day-timeline"><span class="timeline-text" id="timeline-text">备好食材，迎接第一位客人</span><div class="timeline-track"><div id="day-progress"></div></div><span class="day-clock" id="day-clock">开店后 90 秒 / 天</span></div>
+    <div class="time-controls"><button id="pause-button" class="small-button" data-action="pause" disabled aria-label="暂停营业">Ⅱ 暂停</button><button id="speed-button" class="small-button" data-action="speed" title="切换经营速度">1×</button></div>
+  </section>
+
+  <section class="tech-strip" aria-label="科技与堂食经营控制台">
+    <button class="tech-card robot-tech" data-action="dining"><span class="tech-card-icon">♧</span><span class="tech-card-copy"><strong>堂食接待与服务 <i>04</i></strong><small id="dining-tech-status">等位 0 · 就座 0/8</small></span><span class="tech-card-arrow">↗</span></button>
+    <button class="tech-card ai-tech" data-action="ai"><span class="tech-card-icon"><svg><use href="#i-brain"/></svg></span><span class="tech-card-copy"><strong>AI 决策中枢 <i>01</i></strong><small id="ai-tech-status">均衡调度 · 需求预测</small></span><span class="tech-card-arrow">↗</span></button>
+    <button class="tech-card robot-tech" data-action="upgrade"><span class="tech-card-icon"><svg><use href="#i-robot"/></svg></span><span class="tech-card-copy"><strong>机器人工作站 <i>02</i></strong><small id="robot-tech-status">标准模式 · 耐久 100%</small></span><span class="tech-card-arrow">↗</span></button>
+    <button class="tech-card drone-tech" data-action="drone"><span class="tech-card-icon"><svg><use href="#i-drone"/></svg></span><span class="tech-card-copy"><strong>低空物流调度 <i>03</i></strong><small id="drone-tech-status">待命 · 电量 100%</small></span><span class="tech-card-arrow">↗</span></button>
+  </section>
+
+  <section class="growth-ribbon" aria-label="每日目标与成长"><div class="growth-ribbon-heading"><span>DAILY STORY</span><strong>小店的成长日记</strong><small id="growth-tip">每天进步一点点</small></div><div id="daily-quests" class="daily-quests"></div><button class="growth-entry" data-action="growth"><span>✦ <b id="research-points">0</b> 研发点</span><strong>成长 · 装修 ↗</strong></button></section>
+  <section class="district-ribbon" aria-label="街区委托进度"><span class="district-ribbon-mark">⌂</span><div class="district-ribbon-copy"><strong id="district-contract-title">今日街区委托</strong><small id="district-contract-copy">让热餐送进街区的日常</small></div><div class="district-ribbon-track"><i id="district-contract-fill"></i></div><button id="district-entry" data-action="district">街区经营 ↗</button></section>
+  <section class="branch-ribbon" aria-label="门店经营"><span>▥</span><div><strong>把锅气带到下一条街</strong><small id="branch-status">1 家主店 · 第二家店待选址</small></div><button data-action="branches">门店经营 ↗</button></section>
+  <div class="game-layout">
+    <aside class="orders-panel panel" aria-label="当前订单">
+      <div class="panel-title"><h2><svg><use href="#i-bag"/></svg>待办订单</h2><span id="order-count" class="count-pill">0</span></div>
+      <p class="panel-subtitle">堂食 + 现场自取 + 街区配送，AI 协同排产。</p>
+      <div id="orders" class="orders-list"></div>
+      <div class="service-counter"><span>今日已履约</span><strong><span id="served">0</span><small> 碗</small></strong><div class="served-track"><i id="served-progress"></i></div><p id="delivery-summary">远程餐送达后才回款</p></div>
+    </aside>
+
+    <section class="shop-panel panel" aria-label="俯视小店">
+      <div class="shop-toolbar"><div><span class="shop-indicator"></span><h2>街角一号店</h2><span class="shop-level" id="shop-level">Lv.1 手作小店</span></div><div><span class="shop-status" id="shop-status">备货中</span><button class="mobile-order-button" data-action="orders" aria-label="打开订单抽屉">订单 <span id="mobile-order-count">0</span></button></div></div>
+      <div class="scene-wrap" id="scene-wrap">
+        <div id="three-loading" class="three-loading"><span class="three-loading-mark">3D</span><strong>正在搭建你的街角小店</strong><span>木作 · 瓷砖 · 光影 · 锅气</span></div>
+        <div class="three-camera" aria-label="3D镜头操作"><button data-camera="overview">街区</button><button data-camera="front">小店</button><button data-camera="dining">堂食</button><button data-camera="logistics">中央厨房</button><button data-camera="park">科技园</button><button data-camera="community">社区</button><button data-camera="camp">河畔</button><i></i><button id="three-zoom-in" aria-label="放大3D场景">＋</button><button id="three-zoom-out" aria-label="缩小3D场景">−</button></div>
+        <div id="district-info" class="district-info"><strong id="district-name">春日里 · 科技美食街区</strong><p id="district-copy">点击地点探索街区</p><button id="district-action" hidden></button></div>
+        <div class="three-tools"><button class="district-quick" data-action="district">街区委托 ⌂</button><button class="dining-quick" data-action="dining">堂食服务 ♧</button><button id="three-expand">放大场景 ↗</button><button id="three-export">导出模型 ↓</button></div>
+        <div class="three-scene-footer"><span><b class="three-live-dot"></b><strong id="three-live">3D 小店准备中</strong><small id="three-state"></small><small id="guest-status">排队 0 · 用餐 0/8</small></span><span class="three-gesture">拖动旋转 · 右键平移 · 点击建筑探索</span></div>
+        <div id="three-tooltip" class="three-tooltip" hidden></div><button id="three-quality" class="three-quality" title="切换精细光照与流畅模式">WEBGL 3D</button>
+        <div class="scene-caption"><span class="scene-location">春日里 · 空地协同站</span><span><svg><use href="#i-sun"/></svg><span id="weather-label">晴 · 适飞</span></span></div>
+        <svg class="shop-scene" id="shop-scene" viewBox="0 0 900 690" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="俯视卡通炒粉小店，包含厨房、取餐台、备料区和排队顾客">
+          <defs>
+            <pattern id="pavement" width="90" height="52" patternUnits="userSpaceOnUse"><path d="M0 0H90V52H0ZM45 0V52" fill="none" stroke="#dbdcd0" stroke-width="1.5"/></pattern>
+            <pattern id="floor" width="60" height="60" patternUnits="userSpaceOnUse"><rect width="60" height="60" fill="#f2e2bf"/><path d="M0 0H60V60H0Z" fill="none" stroke="#e2cca3" stroke-width="1.5"/><circle cx="30" cy="30" r="3" fill="#e6d2ad"/></pattern>
+            <pattern id="awning" width="74" height="60" patternUnits="userSpaceOnUse"><rect width="74" height="60" fill="#faf0dc"/><rect width="37" height="60" fill="#d86a49"/></pattern>
+            <filter id="soft-shadow" x="-30%" y="-30%" width="170%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="11" flood-color="#67523e" flood-opacity=".14"/></filter>
+            <filter id="object-shadow" x="-35%" y="-35%" width="180%" height="180%"><feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#60513e" flood-opacity=".18"/></filter>
+            <linearGradient id="counter-top" x2="0" y2="1"><stop stop-color="#f9edd3"/><stop offset="1" stop-color="#e9c990"/></linearGradient>
+            <symbol id="plant" viewBox="0 0 80 105"><ellipse cx="40" cy="93" rx="27" ry="7" fill="#6c7557" opacity=".15"/><path d="m20 62 5 31q15 9 30 0l5-31" fill="#cc8f68" stroke="#976448" stroke-width="3"/><ellipse cx="40" cy="62" rx="20" ry="8" fill="#e8aa7c" stroke="#976448" stroke-width="3"/><path d="M40 66V19M40 48Q8 51 12 26q27-3 28 22M40 40Q69 44 68 15 43 13 40 40M40 61Q64 65 70 41 47 35 40 61" fill="#719b66" stroke="#4f7951" stroke-width="3" stroke-linejoin="round"/><path d="m40 48-17-13m19 4 16-16m-17 37 17-13" stroke="#98b67c" stroke-width="2"/></symbol>
+            <symbol id="bowl-art" viewBox="0 0 80 65"><ellipse cx="40" cy="54" rx="26" ry="6" fill="#8b6547" opacity=".13"/><path d="M9 27h62Q67 56 40 57 15 54 9 27" fill="#fdf7e9" stroke="#72604a" stroke-width="3"/><ellipse cx="40" cy="27" rx="31" ry="13" fill="#d9a04e" stroke="#72604a" stroke-width="3"/><g fill="none" stroke="#f9d783" stroke-width="3" stroke-linecap="round"><path d="M18 26q8-12 17 0t22-2M24 32q5-12 17-3t18-3M27 20q9 8 19-1"/></g><path d="m21 22 7-4m21 12 8 2m-18-14 4-4" stroke="#648c51" stroke-width="5" stroke-linecap="round"/></symbol>
+            <symbol id="person" viewBox="-35 -45 70 110"><ellipse cx="0" cy="54" rx="27" ry="9" fill="#455548" opacity=".15"/><path d="m-11 35-2 18m23-18 2 18" stroke="#4e544b" stroke-width="11" stroke-linecap="round"/><rect x="-24" y="-1" width="48" height="43" rx="18" fill="currentColor" stroke="#605649" stroke-width="2.5"/><path d="M-23 10l-6 21m52-21 6 21" stroke="#e7b98d" stroke-width="9" stroke-linecap="round"/><circle cy="-14" r="20" fill="#f1c69c" stroke="#6a5542" stroke-width="2.5"/><path d="M-19-17q1-25 23-18 17 4 16 20-11-1-14-10-8 13-25 8" fill="#5f5043"/><path d="M-6-10v2m12-2v2" stroke="#5d5040" stroke-width="2.7" stroke-linecap="round"/><path d="M-4-2q4 4 8 0" fill="none" stroke="#a4775a" stroke-width="1.8" stroke-linecap="round"/></symbol>
+          </defs>
+          <rect width="900" height="690" fill="#e7ebdd"/>
+          <path d="M0 474h900v216H0Z" fill="#e7e4d8"/><path d="M0 474h900v216H0Z" fill="url(#pavement)"/>
+          <path d="M0 650h900v40H0Z" fill="#d6d9ce"/><path d="M0 649h900" stroke="#c4cbbf" stroke-width="4"/>
+          <g opacity=".55" fill="#8da67b"><ellipse cx="42" cy="133" rx="68" ry="77"/><ellipse cx="870" cy="200" rx="70" ry="84"/></g>
+          <g filter="url(#soft-shadow)">
+            <rect x="128" y="110" width="658" height="401" rx="20" fill="#aa8966" stroke="#796647" stroke-width="4"/>
+            <rect x="128" y="95" width="658" height="394" rx="17" fill="url(#floor)" stroke="#88704f" stroke-width="4"/>
+            <path d="M128 111q0-16 17-16h624q17 0 17 16v35H128Z" fill="#c7d2b6" stroke="#88704f" stroke-width="4"/>
+            <path d="M145 112h624" stroke="#e5ead9" stroke-width="4"/>
+            <path d="M129 145v324q0 18 17 18h44V146" fill="#e8cda2" stroke="#88704f" stroke-width="4"/>
+            <path d="M739 145v342h30q17 0 17-17V145" fill="#e8cda2" stroke="#88704f" stroke-width="4"/>
+            <path d="M144 151v300m609-300v300" stroke="#f9e8c4" stroke-width="5"/>
+          </g>
+          <g id="back-kitchen" stroke="#78674f" stroke-width="3" stroke-linejoin="round">
+            <rect x="208" y="145" width="469" height="79" rx="8" fill="#b69770"/>
+            <rect x="208" y="133" width="469" height="76" rx="8" fill="#f5e8cc"/>
+            <path d="M316 143v54m110-54v54m136-54v54" stroke="#d4bd92"/>
+            <rect x="224" y="145" width="79" height="49" rx="8" fill="#bec9bb"/><rect x="235" y="151" width="57" height="36" rx="7" fill="#91a79e"/>
+            <path d="M270 143v-17q0-11 10-11t10 11" fill="none" stroke="#7f9891" stroke-width="7"/>
+            <rect x="331" y="145" width="81" height="49" rx="5" fill="#d2ad77"/><path d="m344 165 47 18m-41-27 35 10" stroke="#6d9b55" stroke-width="7" stroke-linecap="round"/>
+            <rect x="442" y="145" width="44" height="49" rx="4" fill="#b1bba2"/><rect x="493" y="145" width="44" height="49" rx="4" fill="#b1bba2"/>
+            <path d="M449 155h30m-30 8h30m20-8h30m-30 8h30" stroke="#e8dfb8" stroke-width="5"/>
+            <ellipse cx="584" cy="171" rx="17" ry="16" fill="#eee0bc"/><ellipse cx="618" cy="168" rx="16" ry="16" fill="#f3e8d0"/><ellipse cx="648" cy="171" rx="13" ry="13" fill="#ddaa77"/>
+            <rect x="691" y="156" width="41" height="115" rx="7" fill="#bad0c3"/><rect x="696" y="161" width="31" height="48" rx="4" fill="#e2eee2"/><path d="M699 218h25m-19-42v14m0 40v17" stroke="#78988b"/>
+          </g>
+          <g transform="translate(191 243)" filter="url(#object-shadow)"><rect width="84" height="95" rx="7" fill="#b88b5d" stroke="#80694c" stroke-width="3"/><rect y="-8" width="84" height="90" rx="7" fill="#d7b583" stroke="#80694c" stroke-width="3"/><rect x="9" y="2" width="66" height="27" rx="4" fill="#f2d69d"/><path d="M15 13q9-9 18 0t18 0 17 0M14 21q9-9 18 0t18 0 17 0" fill="none" stroke="#c4a163" stroke-width="3"/><rect x="9" y="38" width="66" height="31" rx="4" fill="#889d60"/><path d="m16 48 15 11 5-14 15 13 13-15" fill="none" stroke="#afc07a" stroke-width="6"/><text x="42" y="109" text-anchor="middle" font-size="12" fill="#9a8063">新鲜备料</text></g>
+          <g id="stove" filter="url(#object-shadow)">
+            <rect x="351" y="266" width="161" height="105" rx="13" fill="#8d9f97" stroke="#5c716b" stroke-width="4"/>
+            <rect x="351" y="251" width="161" height="98" rx="13" fill="#c7d4c9" stroke="#5c716b" stroke-width="4"/>
+            <circle cx="423" cy="297" r="37" fill="#73817b" stroke="#54635f" stroke-width="4"/>
+            <circle class="stove-flame" cx="423" cy="297" r="30" fill="#e5aa4f"/>
+            <g id="wok-group"><ellipse cx="423" cy="292" rx="36" ry="31" fill="#424b47" stroke="#293d37" stroke-width="4"/>
+              <ellipse cx="423" cy="287" rx="31" ry="24" fill="#646550"/>
+              <path d="M401 282q10-10 21 0t20 0m-33 10q9-9 17-2t17-2m-32-15q8 8 18-1" stroke="#e6bb6b" stroke-width="4" fill="none" stroke-linecap="round"/>
+              <path d="m411 279 5-4m13 16 5 3" stroke="#9cb773" stroke-width="5" stroke-linecap="round"/>
+              <path d="m451 310 27 22" stroke="#4b5650" stroke-width="12" stroke-linecap="round"/><path d="m460 316 18 16" stroke="#94734a" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <circle cx="378" cy="336" r="5" fill="#d76d4b"/><circle cx="394" cy="336" r="5" fill="#edc36b"/>
+            <g class="steam"><path d="M408 251q-12-12 0-24t0-23M428 240q-13-12 0-23t0-20M446 253q-12-10 0-20t0-19" fill="none" stroke="#fffaf0" stroke-width="5" stroke-linecap="round"/></g>
+          </g>
+          <g id="chef" transform="translate(430 215)" filter="url(#object-shadow)"><ellipse cy="34" rx="27" ry="8" fill="#675941" opacity=".14"/><path d="m-12 26-1 10m25-10 1 10" stroke="#505e53" stroke-width="11" stroke-linecap="round"/><rect x="-24" y="-5" width="48" height="38" rx="15" fill="#f8f3dd" stroke="#7b715b" stroke-width="3"/><path d="M-14 5H14v28h-28Z" fill="#d7714d"/><path d="M-24 7-32 27m56-20 11 22" stroke="#eab990" stroke-width="11" stroke-linecap="round"/><circle cy="-17" r="20" fill="#e9ba8e" stroke="#7d6147" stroke-width="3"/><path d="M-23-23v-13q-3-14 11-14 10-12 22 0 16-1 14 14v13Z" fill="#fffdf0" stroke="#9b8e70" stroke-width="3"/><path d="M-20-23h40" stroke="#d7cbb0" stroke-width="4"/><circle cx="-7" cy="-15" r="2" fill="#5c4c38"/><circle cx="7" cy="-15" r="2" fill="#5c4c38"/><path d="M-5-7q5 5 10 0" stroke="#ae7852" stroke-width="2" fill="none"/></g>
+          <g id="robot-slot" transform="translate(584 280)"><rect x="-14" y="-15" width="121" height="106" rx="14" fill="#e4d7b9" fill-opacity=".55" stroke="#bea887" stroke-width="2" stroke-dasharray="8 7"/><circle cx="46" cy="26" r="20" fill="#f6ead4"/><path d="M46 15v22M35 26h22" stroke="#b5a184" stroke-width="3" stroke-linecap="round"/><text x="46" y="65" text-anchor="middle" font-size="13" fill="#a38e71">机器人预留位</text></g>
+          <g id="robot-art" transform="translate(604 281)" style="display:none" filter="url(#object-shadow)"><ellipse cx="28" cy="69" rx="43" ry="12" fill="#618b76" opacity=".18"/><rect x="-4" y="20" width="68" height="48" rx="15" fill="#9bc9b0" stroke="#507e68" stroke-width="3"/><rect x="-10" y="-29" width="80" height="60" rx="19" fill="#c6e2c8" stroke="#507e68" stroke-width="3"/><rect x="2" y="-15" width="56" height="28" rx="10" fill="#456b5f"/><circle cx="16" cy="-2" r="4" fill="#d0efd0"/><circle cx="43" cy="-2" r="4" fill="#d0efd0"/><path d="M30-30v-12" stroke="#507e68" stroke-width="4"/><circle cx="30" cy="-46" r="6" fill="#eac66c" stroke="#96764c" stroke-width="2"/><path d="M-4 38-26 26m90 13 21-14" stroke="#6c9c85" stroke-width="10" stroke-linecap="round"/><path d="M11 68v12m38-12v12" stroke="#507e68" stroke-width="10" stroke-linecap="round"/><path d="M21 45h18" stroke="#f1f3d3" stroke-width="4" stroke-linecap="round"/></g>
+          <g id="counter" stroke="#816447" stroke-width="3" stroke-linejoin="round"><rect x="218" y="395" width="453" height="94" rx="10" fill="#c79761"/><path d="M235 420v53m70-53v53m69-53v53m70-53v53m69-53v53m69-53v53m69-53v53" stroke="#b0804e"/><rect x="210" y="373" width="470" height="47" rx="10" fill="url(#counter-top)"/><path d="M221 385h448" stroke="#fff8e5" stroke-width="3"/>
+            <rect x="274" y="357" width="47" height="35" rx="5" fill="#728e80"/><rect x="281" y="347" width="39" height="29" rx="4" fill="#b8d2bd"/><rect x="288" y="353" width="25" height="13" rx="2" fill="#e6edcf" stroke="none"/><path d="M291 384h16" stroke="#e5d5ac"/>
+            <rect x="493" y="382" width="68" height="5" rx="2" fill="#876445" stroke="none"/><path d="m515 357 14 16m-8-18 14 16" stroke="#8c6746" stroke-width="3"/>
+            <rect x="578" y="345" width="44" height="46" rx="6" fill="#f4ead1"/><path d="M586 354h28m-28 7h28m-28 7h20" stroke="#b9ad8e" stroke-width="2"/>
+          </g>
+          <use href="#bowl-art" x="360" y="348" width="70" height="57"/>
+          <g id="front-sign" transform="translate(336 429)"><rect width="220" height="48" rx="8" fill="#fcf0d4" stroke="#9b7750" stroke-width="3"/><text x="110" y="33" text-anchor="middle" font-size="27" font-weight="800" fill="#aa5639" letter-spacing="6">好好炒粉</text></g>
+          <g transform="translate(201 65)" filter="url(#object-shadow)"><rect width="483" height="56" rx="9" fill="#e7d4ab" stroke="#88684c" stroke-width="3"/><path d="M8 8h467v40H8Z" fill="#f7eccf"/><text x="242" y="38" text-anchor="middle" font-size="29" font-weight="800" fill="#5b7156" letter-spacing="10">街 角 炒 粉 社</text></g>
+          <g transform="translate(94 438)"><use href="#plant" width="82" height="108"/></g><g transform="translate(746 440)"><use href="#plant" width="77" height="101"/></g>
+          <g transform="translate(45 326)" filter="url(#object-shadow)"><path d="m7 37 5 60h56l5-60Z" fill="#c4a76f" stroke="#8b794d" stroke-width="3"/><ellipse cx="40" cy="36" rx="34" ry="13" fill="#d1ba83" stroke="#8b794d" stroke-width="3"/><path d="M40 39V-35M40 12Q-8 17 3-18q35-9 37 30M41-4q38 10 33-28Q41-43 41-4M39 32Q2 39 7 12q28-7 32 20M42 26q38 14 36-15-31-15-36 15" fill="#7e9c64" stroke="#5e7e51" stroke-width="3"/></g>
+          <g transform="translate(792 350)"><path d="m0 104 13-91m39 91-13-91" stroke="#8e6d49" stroke-width="7" stroke-linecap="round"/><rect x="5" width="44" height="76" rx="4" fill="#577c62" stroke="#8e6d49" stroke-width="5"/><text x="27" y="22" text-anchor="middle" fill="#f3e5b9" font-size="13" font-weight="700">今日</text><text x="27" y="40" text-anchor="middle" fill="#f3e5b9" font-size="13" font-weight="700">现炒</text><path d="M15 52h24m-20 8h16" stroke="#d7dfc2" stroke-width="2"/></g>
+          <g id="air-network">
+            <g transform="translate(36 70)"><rect width="104" height="60" rx="12" fill="#e0e7cd" stroke="#a6b28d" stroke-width="2"/><path d="M11 16h82m-67 8v21m26-21v21m25-21v21" stroke="#94a47e" stroke-width="3"/><text x="52" y="-10" text-anchor="middle" font-size="13" fill="#7f906c">中央厨房</text><text x="52" y="56" text-anchor="middle" font-size="10" fill="#7f906c">智能出库 · 补给源</text></g>
+            <g transform="translate(803 130)"><circle r="29" fill="#dfe8d5" stroke="#b0bea0" stroke-width="2"/><path d="M-10 10v-25h20v25m-25 0h30M-4-10h3m5 0h3m-11 6h3m5 0h3" stroke="#8ba383" stroke-width="2" fill="none"/><text y="49" text-anchor="middle" font-size="12" fill="#8b9b7b">创客社区</text></g>
+            <g id="landing-pad" transform="translate(681 548)"><ellipse cy="17" rx="49" ry="15" fill="#7c917823"/><ellipse rx="46" ry="28" fill="#dbe8dc" stroke="#8da991" stroke-width="3"/><ellipse rx="34" ry="20" fill="none" stroke="#abc1a6" stroke-width="2" stroke-dasharray="5 4"/><path d="M-10-12v24M10-12v24M-10 0h20" stroke="#7d9b7b" stroke-width="4"/><text y="48" text-anchor="middle" font-size="12" fill="#7d9271">低空起降区</text></g>
+            <path id="flight-route" d="M681 548Q650 280 135 80" fill="none" stroke="#9ba9b2" stroke-width="2" stroke-dasharray="7 8" opacity=".7" visibility="hidden"/>
+          </g>
+          <g id="customers"></g>
+          <g id="idle-visitor" transform="translate(686 559) rotate(-7)"><use href="#person" x="-28" y="-45" width="56" height="88" color="#cbb079"/><path d="M-12 8h24v13h-24Z" fill="#f9e3b9" stroke="#92714f" stroke-width="2"/></g>
+          <g id="open-sign" transform="translate(420 523)"><rect x="-64" y="-2" width="128" height="38" rx="19" fill="#fff7e6" stroke="#d4b994" stroke-width="2"/><text id="open-sign-text" y="23" text-anchor="middle" fill="#92724d" font-size="15" font-weight="600">准备开张啦</text></g>
+          <g id="cooking-meter" transform="translate(361 372)" visibility="hidden"><rect width="123" height="11" rx="6" fill="#f7f0d9" stroke="#8f9b76" stroke-width="1.5"/><rect id="cooking-fill" x="2" y="2" width="0" height="7" rx="4" fill="#d67b41"/></g>
+          <g id="drone-art" transform="translate(681 528)"><ellipse cy="22" rx="25" ry="6" fill="#557970" opacity=".12"/><g stroke="#638b82" stroke-width="4" stroke-linecap="round"><path d="m-12-6-21-13m45 13 21-13M-12 6l-21 13m45-13 21 13"/></g><g class="drone-rotors" fill="#a7c9bd" stroke="#699083" stroke-width="2"><ellipse cx="-35" cy="-20" rx="14" ry="5"/><ellipse cx="35" cy="-20" rx="14" ry="5"/><ellipse cx="-35" cy="20" rx="14" ry="5"/><ellipse cx="35" cy="20" rx="14" ry="5"/></g><rect x="-18" y="-12" width="36" height="25" rx="10" fill="#f2f5e6" stroke="#6d9686" stroke-width="2.5"/><path d="M-7-5h14m-14 5h14" stroke="#9dbb9f" stroke-width="2"/><circle cy="8" r="3" fill="#d7a767"/><rect x="-10" y="16" width="20" height="14" rx="3" fill="#e7c995" stroke="#ac976e" stroke-width="2"/></g>
+          <g opacity=".5" fill="#a0b68b"><ellipse cx="34" cy="599" rx="12" ry="5" transform="rotate(-30 34 599)"/><ellipse cx="854" cy="565" rx="10" ry="5" transform="rotate(30 854 565)"/><ellipse cx="748" cy="640" rx="12" ry="5" transform="rotate(-10 748 640)"/></g>
+        </svg>
+        <div id="event-banner" class="event-banner" hidden></div>
+        <div id="pause-overlay" class="pause-overlay" hidden><span>Ⅱ</span><strong>给小店放个小假</strong><p>营业已暂停，随时回来继续。</p><button class="primary-button" data-action="pause">继续营业</button></div>
+        <div id="float-layer" class="float-layer" aria-hidden="true"></div>
+      </div>
+      <div class="shop-bottom"><span><i class="live-dot"></i><span id="cooking-status">锅已热好，就等你开张</span></span><span class="scene-legend">俯视小店 · 自动保存</span></div>
+    </section>
+
+    <aside class="right-sidebar">
+      <section class="inventory-panel panel"><div class="panel-title"><h2><svg><use href="#i-box"/></svg>食材小仓库</h2><button class="text-link" data-action="purchase">去采购 <span>↗</span></button></div><div id="inventory" class="inventory-list"></div><div class="fresh-note"><svg><use href="#i-leaf"/></svg>青菜、牛肉当天用完更好哦</div></section>
+      <section class="goal-panel panel"><div class="goal-eyebrow">下一站 · 智能小店</div><div class="goal-heading"><span class="robot-icon"><svg><use href="#i-robot"/></svg></span><h2 id="goal-title">解锁炒粉机器人</h2></div><p id="goal-copy">让科技掌勺，让你当个轻松店长。</p><div class="goal-progress"><div id="robot-progress"></div></div><div class="goal-numbers"><span id="goal-saved">已攒 ¥800</span><strong id="goal-cost">目标 ¥1,200</strong></div><button class="goal-button" data-action="upgrade">查看升级 <span>↗</span></button></section>
+      <section class="ai-card"><div class="ai-heading"><span class="ai-avatar"><svg><use href="#i-robot"/></svg></span><div><strong>阿粉 · AI 店长</strong><span>你的经营小帮手</span></div><span class="ai-spark">✧</span></div><p id="ai-advice">先备一点米粉和青菜吧。小店的第一天，从新鲜食材开始。</p><span class="ai-footnote">根据经营数据提供规则建议</span></section>
+    </aside>
+  </div>
+
+  <section class="action-dock" aria-label="经营操作">
+    <div class="dock-actions"><button class="dock-button" data-action="purchase"><span class="dock-icon peach"><svg><use href="#i-box"/></svg></span><span><strong>采购食材</strong><small>新鲜食材，刚刚好</small></span><kbd>1</kbd></button><button class="dock-button" data-action="menu"><span class="dock-icon wheat"><svg><use href="#i-bowl"/></svg></span><span><strong>菜单与定价</strong><small>好吃也要有好价格</small></span><kbd>2</kbd></button><button class="dock-button" data-action="upgrade"><span class="dock-icon sage"><svg><use href="#i-robot"/></svg></span><span><strong>设备升级</strong><small>给小店一点新科技</small></span><kbd>3</kbd></button></div><button class="open-button" id="open-button" data-action="open"><svg><use href="#i-sun"/></svg><span>开门营业</span><svg><use href="#i-arrow"/></svg></button>
+  </section>
+  <footer class="page-footer"><span>AI 算得准，机器人炒得香，无人机送得快。<span class="footer-separator">/</span> 空地协同，今天开张。</span><button data-action="roadmap">查看科技成长路线 <span>↗</span></button></footer>
+</main>
+
+<div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div id="modal-content"></div></section></div>
+<div class="toast-region" id="toasts" role="status" aria-live="polite"></div>
+<script src="growth.js"></script><script src="travel-routes.js"></script><script src="dining.js"></script><script src="district.js"></script><script src="branch.js"></script><script src="engine.js"></script><script src="tech.js"></script><script src="growth-ui.js"></script><script src="guest-flow.js"></script><script src="dining-ui.js"></script><script src="district-ui.js"></script><script src="branch-ui.js"></script><script src="app.js"></script><script type="module" src="scene3d.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+(function(){
+  'use strict';
+  const E=window.NoodleEngine,D=E.Dining,$=id=>document.getElementById(id);
+  const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const PHASES={arriving:'正在走来',reception:'等待接待',seating:'前往桌位',sitting:'正在落座',ordering:'看菜单点餐',waitingMeal:'等待送餐',eating:'开心用餐',standing:'准备离桌',leaving:'挥手离店'};
+  const KINDS={solo:'单人食客',friends:'结伴双人',family:'亲子两位'};
+  const btn=(action,text,value,disabled=false,extra='')=>`<button class="dining-button" data-action="${action}" data-value="${value}" ${disabled?'disabled':''} ${extra}>${text}</button>`;
+  function available(s,t,size){const d=D.ensure(s);if(t.cleaning||!d.allowSharing&&(t.seats.some(x=>x!==null)||t.dirty.some(Boolean)))return false;return t.seats.filter((v,i)=>v===null&&!t.dirty[i]).length>=size;}
+  function partyCard(s,p){return `<article class="dining-party"><div><strong>${KINDS[p.kind]} <small>#${p.id}</small></strong><span>${PHASES[p.phase]} · ${Math.max(0,Math.ceil(p.patience-p.age))} 秒等位耐心</span></div><div class="dining-patience"><i style="width:${Math.max(0,1-p.age/p.patience)*100}%"></i></div><p>${p.kind==='family'?'大人带孩子，需同桌两个干净座位':p.kind==='friends'?'同伴结伴，需要坐在同一张桌':'可以安排一个干净空位'}</p><div class="dining-seat-choices">${s.dining.tables.map(t=>btn('seat-party',`${t.id+1}号桌`,p.id,p.phase!=='reception'||!available(s,t,p.size),`data-table="${t.id}"`)).join('')}</div></article>`;}
+  function panel(s){
+    const d=D.ensure(s),c=D.counts(s),r=d.server,waiting=d.parties.filter(p=>['arriving','reception'].includes(p.phase));
+    return `<div class="dining-summary"><div><small>正在等位</small><strong>${c.queue}<em>位</em></strong></div><div><small>已占座位</small><strong>${c.occupied}<em>/8</em></strong></div><div><small>待清餐具</small><strong>${c.dirty}<em>份</em></strong></div><div><small>堂食收入</small><strong>¥${s.stats.dineInRevenue||0}</strong></div></div>
+    <div class="dining-notice">接待入座 → 点单炒粉 → 服务机器人送达收款 → 用餐 → 清桌。面板打开时暂停营业，关闭后继续。等位超时会流失，落座点单后等待送餐超过 25 秒按九折结算。</div>
+    <div class="dining-switches">${btn('dining-toggle',`自动接待：${d.autoSeat?'开':'关'}`,'autoSeat')}${btn('dining-toggle',`自动清桌：${d.autoClean?'开':'关'}`,'autoClean')}${btn('dining-toggle',`允许拼桌：${d.allowSharing?'开':'关'}`,'allowSharing')}</div>
+    <h3 class="dining-heading">四桌八座 <small>脏餐具清理后，座位才能再次使用</small></h3>
+    <div class="dining-table-grid">${d.tables.map(t=>{const status=t.cleaning?'清理中':t.dirty.some(Boolean)?'待清桌':t.seats.some(x=>x!==null)?'用餐中':'空桌';return `<article class="dining-table ${t.cleaning?'cleaning':t.dirty.some(Boolean)?'dirty':t.seats.some(x=>x!==null)?'occupied':'empty'}"><div><strong>${t.id+1} 号桌</strong><span>${status}</span></div><div class="dining-chair-row">${t.seats.map((v,i)=>`<span class="${t.dirty[i]?'dirty':v!==null?'occupied':'empty'}">${t.dirty[i]?'空碗':v!==null?'已占':'空位'}</span>`).join('')}</div>${btn('clean-table',t.requested?'已加入清桌队列':'安排清桌',t.id,!t.dirty.some(Boolean)||t.cleaning||t.requested||!['open','closing'].includes(s.phase))}</article>`;}).join('')}</div>
+    <h3 class="dining-heading">门口接待 <small>${waiting.length} 组 · 双人客与亲子客同桌安排</small></h3><div class="dining-party-list">${waiting.length?waiting.map(p=>partyCard(s,p)).join(''):'<p class="dining-empty">暂无等位客人。开门后，客人会从街口陆续走来。</p>'}</div>
+    <h3 class="dining-heading">小满 · 服务机器人 ${d.serverLevel>1?'Pro':'01'}</h3><div class="dining-server-status"><span class="dining-server-mark">▰</span><div><strong>${r.job?`${r.job.kind==='deliver'?'正在送餐':'正在清桌'} · ${r.job.table+1} 号桌`:'充电待命，准备服务'}</strong><small>待送 ${d.readyMeals.length} 份 · 今日送达 ${s.stats.dineInServed||0} 份 · 清理 ${s.stats.tablesCleaned||0} 次</small></div></div><div class="dining-switches">${[['balanced','均衡调度'],['serve','送餐优先'],['clean','清桌优先']].map(([k,v])=>btn('service-policy',v,k,false,`aria-pressed="${d.policy===k}"`)).join('')}${btn('upgrade-service',d.serverLevel>1?'服务 Pro 已安装':'升级 Pro · ¥220','',s.phase!=='prep'||d.serverLevel>1||s.cash<220)}</div>
+    <p class="dining-notice subtle">基础服务机器人已配置，无额外日费。Pro 提高移动速度，清桌由 4.2 秒缩短至 2.6 秒；升级费计入设备投资。关闭拼桌可保留整桌给同伴，也可能增加等位。</p>
+    <h3 class="dining-heading">服务记录</h3><div class="dining-journal">${d.journal.length?d.journal.map(x=>`<p><span>第 ${x.second} 秒</span>${esc(x.text)}</p>`).join(''):'<p>开始营业后显示接待、点单、送餐和清桌记录。</p>'}</div>`;
+  }
+  function guestPanel(s,id){const p=D.ensure(s).parties.find(p=>p.members.some(m=>m.id===id));if(!p)return '<p class="dining-empty">这位顾客已经离店。</p>';const m=p.members.find(m=>m.id===id);return `<div class="dining-guest-card"><span>${m.child?'亲子小朋友':esc(m.name)}</span><h3>${KINDS[p.kind]} · ${PHASES[p.phase]}</h3><p>想吃：${E.MENU[m.type].name}${m.child?'，少辣':''}</p><p>${p.table===null?'还没有安排桌位':`正在 ${p.table+1} 号桌 · ${m.paid?'餐点已送达':'餐点尚未送达'}`}</p><p>${p.kind==='family'?'“带孩子一起吃顿热乎的。”':p.kind==='friends'?'“两个人坐一起，边吃边聊。”':'“吃完这碗，再继续今天的工作。”'}</p></div>${btn('dining','打开接待与清桌台','')}`;}
+  function render(s){const el=$('dining-tech-status');if(!el)return;const c=D.counts(s);el.textContent=`等位 ${c.queue} · 就座 ${c.occupied}/8 · 待清 ${c.dirty}`;}
+  window.NoodleDiningUI={panel,guestPanel,render};
+})();
