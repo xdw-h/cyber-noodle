@@ -54,5 +54,6 @@
     }
     return out;
   }
-  return {damp,angle,smooth,advance,foot,leg,baseHeight,crowd,turn,seatBlend,handoff};
+  function stroll(distance,amount){const strength=smooth(amount/.12),phase=distance*Math.PI*2/.32;return {legs:[Math.sin(phase)*.2*strength,-Math.sin(phase)*.2*strength],arms:[-Math.sin(phase)*.14*strength,Math.sin(phase)*.14*strength]};}
+  return {damp,angle,smooth,advance,foot,leg,baseHeight,crowd,turn,seatBlend,handoff,stroll};
 });

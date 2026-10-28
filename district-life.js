@@ -39,7 +39,7 @@ export function poseDistrictLife(life,s,time,camera,dt=1/60,reduced=false){
     p.bubble.userData={anchor:{x:p.x,y:2.5,z:p.z},wanted:p.bubble.visible,priority:inbound?5:received?4:2,order:0};
     p.ring.visible=inbound||d.selected===key&&d.status==='active';p.ring.scale.setScalar(1+Math.sin(time*2)*.035);
     const a=time*.24+key.length,g={x:p.x+1.55+Math.sin(a)*.35,z:p.z+.6+Math.cos(a)*.15,facing:Math.atan2(Math.cos(a)*.35,-Math.sin(a)*.15)};
-    p.motion=motion.advance(p.motion,g,dt);p.companion.root.position.set(p.motion.x,.24,p.motion.z);p.companion.root.rotation.y=p.motion.yaw;p.companion.legs.forEach((leg,i)=>leg.rotation.x=Math.sin(p.motion.distance*10+i*Math.PI)*.15*p.motion.amount);
+    p.motion=motion.advance(p.motion,g,dt);p.companion.root.position.set(p.motion.x,.24,p.motion.z);p.companion.root.rotation.y=p.motion.yaw;const gait=motion.stroll(p.motion.distance,p.motion.amount);p.companion.legs.forEach((leg,i)=>leg.rotation.x=gait.legs[i]);p.companion.arms.forEach((arm,i)=>arm.rotation.x=gait.arms[i]);
   }
   const supplying=mission?.kind==='supply';life.warehouse.head.rotation.x=supplying?.12:0;life.warehouse.arms.forEach(arm=>arm.rotation.x=-.9);
   life.crates.forEach((g,i)=>g.position.set(-14+(i*.8+(supplying?time*.6:0))%3.3,1.16,-4.8));
