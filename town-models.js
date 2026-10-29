@@ -15,6 +15,8 @@ export function buildTown(world){
   box(ground,2.6,.08,19,-7,-.18,-22,road,.02);box(ground,2.6,.08,10,-6,-.18,24.9,road,.02);box(ground,2.6,.08,10,8,-.18,24.9,road,.02);
   function house(x,z,w,d,h,index,name,kind='home'){
     const zone=z<-15?'town-north':z>22?'town-river':x<0?'town-west':'town-east';if(!zones[zone]){zones[zone]=group(architecture,zone);zones[zone].userData={view:zone,title:'小镇街区 · 点击探索'};}const g=group(zones[zone],name,x,0,z);buildings.push({name,x,z,width:w,depth:d});
+    const id='town-building-'+index,action=name==='小镇超市'?'town-supermarket':kind==='home'?'town-residents':'town-venue';Object.assign(buildings[buildings.length-1],{id,kind,action,height:h});
+    const proxy=new T.Mesh(new T.BoxGeometry(w,h+1,d),new T.MeshBasicMaterial({visible:false}));proxy.position.set(x,(h+1)/2,z);proxy.userData={action,value:id,title:name,buildingId:id};root.add(proxy);
     box(g,w+.6,.13,d+.6,0,-.15,0,M.stoneLight,.03);box(g,w,h,d,0,.04+h/2,0,walls[index%4],.09);
     if(kind==='home'){const roof=box(g,w*.66,.18,d+.6,-w*.22,h+.55,0,roofMaterials[index%4],.02);roof.rotation.z=.48;const other=box(g,w*.66,.18,d+.6,w*.22,h+.55,0,roofMaterials[index%4],.02);other.rotation.z=-.48;cyl(g,.16,.75,w*.23,h+.6,-d*.23,M.stoneDark);}
     else{box(g,w+.35,.2,d+.35,0,h+.15,0,roofMaterials[index%4],.025);box(g,w-.2,.1,d-.2,0,h+.3,0,M.stoneLight,.02);}
@@ -47,16 +49,18 @@ export function buildTown(world){
   for(const z of horizontal)for(let x=-43;x<=43;x+=9)lamp(x,z+2.55);for(const x of [-25,25,-46,46])for(let z=-23;z<=32;z+=9)lamp(x+2.55,z);
   for(const [x,z]of [[-9,7.7],[-3,12.8],[5,7.7],[17,12.8],[-18,12.8],[4,-10],[-6,22],[8,22],[-10,29],[10,29],[0,35]])lamp(x,z);
   for(const [x,z,name]of [[-34,-16,'榆树住宅街'],[35,7,'东街 · 商店街'],[-34,24,'河岸公园'],[0,37,'春日里 · 镇民广场']]){label(fixtures,name,5,.5,x,.03,z,{color:'#536c57',bg:'#f2e8d2'}).rotation.x=-Math.PI/2;}
-  for(const zone of Object.values(zones)){zone.traverse(o=>{if(o.isMesh)o.castShadow=false;});batch(zone);}batch(ground);batch(fixtures);
+  const parkProxy=new T.Mesh(new T.BoxGeometry(17,.3,9),new T.MeshBasicMaterial({visible:false}));parkProxy.position.set(-35,0,18);parkProxy.userData={action:'town-park',value:'town-park',title:'河岸公园'};root.add(parkProxy);
+  architecture.traverse(o=>{if(o.isMesh)o.castShadow=false;});batch(architecture);for(const zone of Object.values(zones))delete zone.userData.view;batch(ground);batch(fixtures);
   const poolTexture=canvasTexture((ctx,n)=>{const gradient=ctx.createRadialGradient(n/2,n/2,0,n/2,n/2,n/2);gradient.addColorStop(0,'rgba(255,206,121,.38)');gradient.addColorStop(.45,'rgba(255,201,112,.15)');gradient.addColorStop(1,'rgba(255,190,90,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,n,n);},64),poolMaterial=new T.MeshBasicMaterial({map:poolTexture,transparent:true,depthWrite:false,opacity:0,blending:T.AdditiveBlending});
   const pools=new T.InstancedMesh(new T.PlaneGeometry(5,5),poolMaterial,lamps.length),dummy=new T.Object3D();lamps.forEach((p,i)=>{dummy.position.set(p.x,-.105,p.z);dummy.rotation.x=-Math.PI/2;dummy.updateMatrix();pools.setMatrixAt(i,dummy.matrix);});pools.name='路灯地面光池';pools.frustumCulled=false;root.add(pools);
   const lights=Array.from({length:8},()=>{const light=new T.PointLight('#ffd093',0,9,2);world.add(light);return light;});
   const clockLabel=document.createElement('div');clockLabel.className='town-clock';clockLabel.setAttribute('role','timer');document.getElementById('scene-wrap').append(clockLabel);
   return {root,lamps,lights,buildings,poolMaterial,clockLabel,windowMaterial,lampMaterial};
 }
+const dayColor=new T.Color('#f0e8d5'),duskColor=new T.Color('#c89588'),darkColor=new T.Color('#18263d'),floorNight=new T.Color('#263b57'),hemiDay=new T.Color('#fff3d6');
 export function poseTown(town,s,scene,camera,controls,sun,hemisphere,fill,floor){
-  const c=globalThis.NoodleTownCycle.daylight(s);town.cycle=c;const night=c.night;
-  const day=new T.Color('#f0e8d5'),dusk=new T.Color('#c89588'),dark=new T.Color('#18263d');scene.background.copy(day).lerp(dusk,Math.sin(night*Math.PI)*.55).lerp(dark,night);floor.material.color.copy(day).lerp(new T.Color('#263b57'),night);sun.intensity=3.1*(1-night)+.08;sun.color.set(night>.1?'#ffd0a0':'#ffdfa4');sun.position.set(-28+56*c.progress,12+27*c.sun,20);hemisphere.intensity=1.4*(1-night)+.22;hemisphere.color.set('#8aaada').lerp(new T.Color('#fff3d6'),1-night);fill.intensity=.8*(1-night)+.12;scene.environmentIntensity=.32*(1-night)+.07;
+  const c=globalThis.NoodleTownCycle.daylight(s),changed=!town.cycle||Math.abs(town.cycle.hour-c.hour)>.002;town.cycle=c;const night=c.night;
+  if(changed){scene.background.copy(dayColor).lerp(duskColor,Math.sin(night*Math.PI)*.55).lerp(darkColor,night);floor.material.color.copy(dayColor).lerp(floorNight,night);sun.intensity=3.1*(1-night)+.08;sun.color.set(night>.1?'#ffd0a0':'#ffdfa4');sun.position.set(-28+56*c.progress,12+27*c.sun,20);hemisphere.intensity=1.4*(1-night)+.22;hemisphere.color.set('#8aaada').lerp(hemiDay,1-night);fill.intensity=.8*(1-night)+.12;scene.environmentIntensity=.32*(1-night)+.07;}
   town.windowMaterial.emissiveIntensity=night*1.2;town.lampMaterial.emissiveIntensity=night*3;town.poolMaterial.opacity=night;document.getElementById('scene-wrap').dataset.night=night>.5?'true':'false';
-  const nearby=town.lamps.map(p=>({p,d:p.distanceToSquared(controls.target)})).sort((a,b)=>a.d-b.d);town.lights.forEach((light,i)=>{light.position.copy(nearby[i].p);light.intensity=night*14;});town.clockLabel.textContent=`模拟 ${c.clock} · ${c.phase}${s?.paused?' · 暂停':''}`;
+  if(!town.lightTarget||town.lightTarget.distanceToSquared(controls.target)>1){town.lightTarget=controls.target.clone();town.nearby=town.lamps.map(p=>({p,d:p.distanceToSquared(controls.target)})).sort((a,b)=>a.d-b.d);town.lights.forEach((light,i)=>light.position.copy(town.nearby[i].p));}town.lights.forEach(light=>{light.intensity=night*14;});const text=`日照 ${c.clock} · ${c.phase}${c.mode==='manual'?' · 手动':''}${s?.paused?' · 暂停':''}`;if(town.clockLabel.textContent!==text)town.clockLabel.textContent=text;
 }

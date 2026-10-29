@@ -1,0 +1,9 @@
+{
+  "name": "cyber-noodle-rank",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-01",
+  "account_id": "086c170c3b804f7e076ae0de7a9038b7",
+  "workers_dev": true,
+  "vars": { "ALLOWED_ORIGINS": "https://xdw-h.github.io", "RULE_VERSION": "v040" },
+  "d1_databases": [{ "binding": "DB", "database_name": "cyber-noodle-rank", "database_id": "REPLACE_WITH_CREATED_D1_ID", "migrations_dir": "migrations" }]
+}

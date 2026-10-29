@@ -10,6 +10,7 @@
   let lastOrderSignature = '', lastCustomerSignature = '', lastFrame = performance.now(), renderAt = 0;
   let previousServed = 0, previousPhase = 'prep', eventNotified = false, tutorialSeen = false;
   let pendingImport = null;
+  let frameRequest = 0, idleTimer = 0;
   try {
     let pref = {};
     try { pref = JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (_) { /* 偏好设置损坏不能影响经营存档。 */ }
@@ -149,14 +150,15 @@
     const main = $('open-button');
     main.classList.toggle('service', active);
     main.innerHTML = `${icons(state.phase === 'prep' ? 'sun' : state.phase === 'report' ? 'chart' : 'bowl')}<span>${state.phase === 'prep' ? '开门营业' : state.phase === 'report' ? '查看日结' : state.phase === 'closing' ? '正在收摊…' : '收摊结算'}</span>${icons('arrow')}`;
-    main.disabled = state.phase === 'closing';
+    main.disabled = state.phase === 'closing'||!!state.town?.terminal;
+    if(state.town?.terminal)main.querySelector('span').textContent='本局已结束';
     const eventOn = state.phase === 'open' && state.event && state.elapsed >= state.event.start && state.elapsed < state.event.end;
     $('event-banner').hidden = !eventOn;
     if (eventOn) {
       $('event-banner').textContent = `✧ ${state.event.title} · 还有 ${Math.ceil(state.event.end - state.elapsed)} 秒`;
       if (!eventNotified) { eventNotified = true; toast(state.event.description); }
     }
-    renderOrders(); renderCustomers(); window.NoodleTech.render(state); window.NoodleGrowthUI.render(state); window.NoodleDiningUI.render(state); window.NoodleDistrictUI.render(state); window.NoodleBranchUI.render(state); if(window.Noodle3D) window.Noodle3D.sync(state);
+    renderOrders(); renderCustomers(); window.NoodleTech.render(state); window.NoodleGrowthUI.render(state); window.NoodleDiningUI.render(state); window.NoodleDistrictUI.render(state); window.NoodleBranchUI.render(state); if(window.Noodle3D) window.Noodle3D.sync(state); window.NoodleShell?.render(state);
   }
 
   function modalHead(title, description, icon) {
@@ -168,7 +170,7 @@
       modalPaused = kind !== 'orders' && ['open', 'closing'].includes(state.phase) && !state.paused;
       if (modalPaused) state.paused = true;
     }
-    modalKind = kind; $('modal-content').innerHTML = html; $('modal-backdrop').hidden = false;
+    window.NoodleShell?.releasePanels();modalKind = kind; $('modal-content').innerHTML = html; $('modal-backdrop').hidden = false;
     if(kind==='report')window.NoodleOperationsUI.report(state);
     document.body.classList.add('modal-open'); render();
     const focus = $('modal').querySelector('button:not(:disabled), input:not(:disabled)');
@@ -177,12 +179,12 @@
   function closeModal() {
     if (modalKind === 'corrupt') { toast('请先备份或确认新建游戏，原存档尚未覆盖。', true); return; }
     if (modalKind === 'report') { toast('查看结算后，点击“准备下一天”继续。'); return; }
-    modalKind = null; $('modal-backdrop').hidden = true; document.body.classList.remove('modal-open');
+    window.NoodleShell?.releasePanels();modalKind = null; $('modal-backdrop').hidden = true; document.body.classList.remove('modal-open');
     if (modalPaused) { state.paused = false; modalPaused = false; }
     lastFrame = performance.now(); render();
     if (restoreFocus && restoreFocus.isConnected) restoreFocus.focus({ preventScroll: true });
   }
-  function dismissAll() { modalKind = null; modalPaused = false; $('modal-backdrop').hidden = true; document.body.classList.remove('modal-open'); }
+  function dismissAll() { window.NoodleShell?.releasePanels();modalKind = null; modalPaused = false; $('modal-backdrop').hidden = true; document.body.classList.remove('modal-open'); }
   function showPurchase() {
     const locked = state.phase !== 'prep';
     openModal('purchase', modalHead('新鲜食材，刚刚好', '采购后立即扣款。青菜与牛肉会在当天收摊时报废，先少量备货更稳妥。', 'box') +
@@ -270,7 +272,7 @@
     'district-accept'(b) { if(transaction(E.District.accept(state,b.dataset.value))) showDistrict(b.dataset.value); },
     'district-clear'() { if(transaction(E.District.clear(state))) showDistrict('overview'); },
     'district-claim'() { if(transaction(E.District.claim(state))) { if(modalKind==='report')showReport();else showDistrict(window.NoodleDistrictUI.tab); } },
-    'district-auto'() { state.drone.auto=!state.drone.auto;save();render();showDistrict(window.NoodleDistrictUI.tab); },
+    'district-auto'() { state.drone.auto=!state.drone.auto;window.NoodleOnline?.record('setAuto',[state.drone.auto]);save();render();showDistrict(window.NoodleDistrictUI.tab); },
     'district-supply'(b) { if(transaction(E.requestSupply(state,b.dataset.value)))showDistrict('kitchen'); },
     'district-visit'(b) { closeModal();window.Noodle3D?.view(b.dataset.value==='kitchen'?'logistics':b.dataset.value); },
 
@@ -295,7 +297,7 @@
     'repair-robot'() { if(transaction(E.repairRobot(state))) showUpgrade(); },
     'upgrade-robot'() { if(transaction(E.upgradeRobot(state))) showUpgrade(); },
     'upgrade-drone'() { if(transaction(E.upgradeDrone(state))) actions.drone(); },
-    'toggle-auto'() { state.drone.auto=!state.drone.auto;save();render();actions.drone(); },
+    'toggle-auto'() { state.drone.auto=!state.drone.auto;window.NoodleOnline?.record('setAuto',[state.drone.auto]);save();render();actions.drone(); },
     'dispatch-drone'(b) { if(transaction(E.dispatchDrone(state,Number(b.dataset.value)))) actions.drone(); },
     'dispatch-ground'(b) { if(transaction(E.dispatchGround(state,Number(b.dataset.value)))) actions.drone(); },
     supply(b) { if(transaction(E.requestSupply(state,b.dataset.value))) actions.drone(); },
@@ -327,21 +329,22 @@
     'save-menu'() {
       const next = E.clone(state);
       for (const key of Object.keys(E.MENU)) { const result = E.setPrice(next, key, Number($(`price-${key}`).value)); if (!result.ok) { toast(result.message, true); return; } }
-      state.prices = next.prices; save(); closeModal(); toast('菜单已保存，等顾客来尝尝吧。');
+      for(const key of Object.keys(next.prices))if(state.prices[key]!==next.prices[key])E.setPrice(state,key,next.prices[key]);save(); closeModal(); toast('菜单已保存，等顾客来尝尝吧。');
     },
     'buy-robot'() {
       if (transaction(E.buyRobot(state))) { closeModal(); tone('upgrade'); openModal('achievement', `<div class="report-top"><div class="robot-portrait" style="margin:0 auto 18px">${icons('robot')}</div><h2 id="modal-title">小店，向未来迈了一步！</h2><p class="modal-desc">第 ${state.day} 天，你拥有了第一台炒粉机器人。${state.day <= 7 ? '七日小挑战达成！' : '每一次坚持，都算数。'}</p></div><div class="modal-notice">以后开店，阿炒 01 会自动接单，每份 2 秒出餐。记得留足 ¥80 运营费和食材预算。</div><button class="primary-button modal-full-button" style="margin-top:20px" data-action="close-modal">继续经营我的小店</button>`); }
     },
     'tutorial-start'() { tutorialSeen = true; savePrefs(); closeModal(); if (state.phase === 'prep' && !state.inventory.noodles) showPurchase(); },
-    'next-day'() { dismissAll(); E.nextDay(state); previousServed = 0; previousPhase = 'prep'; eventNotified = false; save(); render(); toast(`第 ${state.day} 天，新的小目标从一碗粉开始。`); },
+    'next-day'() { if(window.NoodleOnline?.active&&!window.NoodleOnline.canContinue){toast('请先完成本日成绩同步，或退出正式挑战。',true);return;}if(state.town?.terminal){window.NoodleShell.terminal();return;}dismissAll(); E.nextDay(state); previousServed = 0; previousPhase = 'prep'; eventNotified = false; save(); render(); toast(`第 ${state.day} 天，新的小目标从一碗粉开始。`); },
     'confirm-close'() { dismissAll(); E.closeDay(state); lastFrame = performance.now(); render(); handleTransitions(); },
     'cancel-confirm'() { if (corruptRaw !== null) showCorrupt(); else if (modalKind === 'confirm-import') showHelp(); else closeModal(); },
     'export-save'() { download(corruptRaw !== null ? corruptRaw : E.encodeSave(safe, ['open', 'closing'].includes(state.phase))); toast('存档备份已导出。'); },
     'import-save'() { $('import-file').click(); },
     'new-game'() { confirmDialog('confirm-new', '重新开始一间小店？', '这会覆盖当前浏览器中的游戏存档。建议先导出备份；取消则保留现有进度。', '确认重新开始'); },
-    'confirm-new'() { corruptRaw = null; state = E.createFutureState(); safe = E.clone(state); dismissAll(); previousServed = 0; previousPhase = 'prep'; lastOrderSignature = ''; lastCustomerSignature = ''; speed = 1; eventNotified = false; save(); render(); showTutorial(); },
+    'confirm-new'() { window.NoodleOnline?.beforeRestore(false);handleTransitions.terminalShown=false;corruptRaw = null; state = E.createFutureState(); safe = E.clone(state); dismissAll(); previousServed = 0; previousPhase = 'prep'; lastOrderSignature = ''; lastCustomerSignature = ''; speed = 1; eventNotified = false; save(); render(); showTutorial(); },
     'confirm-import'() {
       if (!pendingImport) return;
+      window.NoodleOnline?.beforeRestore(false);handleTransitions.terminalShown=false;
       state = pendingImport.state; if(!state.future) E.enableFuture(state); safe = E.clone(state); const restored = pendingImport.wasOpen; pendingImport = null; corruptRaw = null;
       previousServed = state.stats.served; previousPhase = state.phase; lastOrderSignature = ''; lastCustomerSignature = ''; eventNotified = false;
       dismissAll(); save(); render(); toast(restored ? '已读取营业前存档，今天可以重新开张。' : '存档已恢复。'); if (state.phase === 'report') showReport();
@@ -349,7 +352,12 @@
   };
   document.addEventListener('click', event => {
     const button = event.target.closest('[data-action]');
-    if (button && !button.disabled && actions[button.dataset.action]) actions[button.dataset.action](button);
+    if (button && !button.disabled && actions[button.dataset.action]) {
+      const action=button.dataset.action;
+      if(window.NoodleOnline?.busy&&!['close-modal','shell-rank','rank-board','rank-submit','rank-leave','rank-confirm-leave','shell-settings','shell-clock','shell-time','sound','music','help','shell-save','export-save'].includes(action)){toast('成绩尚未同步，请先重试或退出挑战。',true);return;}
+      if(state.town?.terminal&&!['close-modal','new-game','confirm-new','cancel-confirm','export-save','import-save','confirm-import','shell-save','slot-save','slot-load','slot-confirm','challenge-backup','challenge-backup-confirm','shell-rank','rank-board','rank-start','rank-confirm-start','rank-resume','rank-leave','rank-confirm-leave','rank-submit','shell-settings','shell-time','shell-clock','shell-quality','shell-fullscreen','sound','music','help','town-venue','shell-finance'].includes(action)){window.NoodleShell.terminal();return;}
+      actions[action](button);
+    }
     if (event.target === $('modal-backdrop') && !['report', 'corrupt', 'confirm-new', 'confirm-import', 'confirm-close'].includes(modalKind)) closeModal();
   });
   document.addEventListener('input', event => { if (event.target.id.startsWith('buy-')) updateBasket(); if(event.target.id.startsWith('branch-buy-')) window.NoodleBranchUI.updateBasket(); });
@@ -389,20 +397,31 @@
       $('float-layer').appendChild(float); setTimeout(() => float.remove(), 1600); tone('sale'); previousServed = state.stats.served;
     }
     handleTransitions.lastRevenue = state.stats.revenue;
-    if (state.phase === 'report' && previousPhase !== 'report') { previousPhase = 'report'; save(); render(); showReport(); }
+    if (state.town?.terminal && !handleTransitions.terminalShown) {handleTransitions.terminalShown=true;save();render();window.NoodleShell.terminal();window.NoodleOnline?.submit();}
+    else if (state.phase === 'report' && previousPhase !== 'report') { previousPhase = 'report'; save(); render(); showReport(); window.NoodleOnline?.submit(); }
     else previousPhase = state.phase;
   }
   function frame(now) {
+    frameRequest=0;idleTimer=0;if(document.hidden)return;
     const dt = Math.min(.2, Math.max(0, (now - lastFrame) / 1000)); lastFrame = now;
-    if (!document.hidden) E.tick(state, dt * speed);
+    if (!document.hidden) {
+      if(window.NoodleOnline?.active)window.NoodleOnline.tick(dt*speed);
+      else E.tick(state, dt * speed);
+    }
     handleTransitions();
-    if (now - renderAt >= 140) { render(); renderAt = now; }
-    requestAnimationFrame(frame);
+    if (now - renderAt >= 140 && ['open','closing'].includes(state.phase) && !state.paused) { render(); renderAt = now; }
+    scheduleFrame();
   }
+  function scheduleFrame(){if(document.hidden)return;if(['open','closing'].includes(state.phase)&&!state.paused)frameRequest=requestAnimationFrame(frame);else idleTimer=setTimeout(()=>{idleTimer=0;frameRequest=requestAnimationFrame(frame);},200);}
+  function restore(next,ranked=false){window.NoodleOnline?.beforeRestore(ranked);state=E.clone(next);safe=E.clone(state);dismissAll();previousServed=state.stats.served;previousPhase=state.phase;lastOrderSignature='';lastCustomerSignature='';eventNotified=false;handleTransitions.terminalShown=false;handleTransitions.lastRevenue=state.stats.revenue;lastFrame=performance.now();save();render();if(state.town?.terminal)window.NoodleShell.terminal();else if(state.phase==='report')showReport();}
+  const bridge={E,actions,openModal,modalHead,closeModal,dismissAll,save,render,toast,restore,
+    get state(){return state;},get checkpoint(){return ['open','closing'].includes(state.phase)?E.clone(safe):E.clone(state);},get active(){return ['open','closing'].includes(state.phase);},get modal(){return modalKind;},get speed(){return speed;}};
+  window.NoodleApp=bridge;window.NoodleShell.bind(bridge);
+  document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(frameRequest);clearTimeout(idleTimer);frameRequest=0;idleTimer=0;if(!document.hidden){lastFrame=performance.now();scheduleFrame();}});
   renderSound(); render();
   if (storageBlocked) { $('save-status').textContent = '当前无法写入存档'; setTimeout(() => toast('浏览器未开放本地存储，可在帮助中手动导出存档。', true), 500); }
   if (corruptRaw !== null) showCorrupt();
   else if (state.phase === 'report') showReport();
   else if (!tutorialSeen) showTutorial();
-  requestAnimationFrame(frame);
+  scheduleFrame();
 })();

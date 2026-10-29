@@ -18,7 +18,7 @@ export function colorMat(color){return mat(color,color);}
 const geoCache=new Map();
 export function mesh(g,geometry,material,x=0,y=0,z=0){const m=new T.Mesh(geometry,material);m.position.set(x,y,z);m.castShadow=!material.transparent;m.receiveShadow=true;g.add(m);return m;}
 export function group(parent,name,x=0,y=0,z=0){const g=new T.Group();g.name=name;g.position.set(x,y,z);parent.add(g);return g;}
-export function box(g,w,h,d,x,y,z,m=M.wood,r=.035){r=Math.min(r,w*.24,h*.24,d*.24);const key=[w,h,d,r].join(':');if(!geoCache.has(key))geoCache.set(key,r>0?new RoundedBoxGeometry(w,h,d,2,r):new T.BoxGeometry(w,h,d));return mesh(g,geoCache.get(key),m,x,y,z);}
+export function box(g,w,h,d,x,y,z,m=M.wood,r=.035){r=Math.min(r,w*.24,h*.24,d*.24);const segments=Math.max(w,h,d)<=1.5?1:2,key=[w,h,d,r,segments].join(':');if(!geoCache.has(key))geoCache.set(key,r>0?new RoundedBoxGeometry(w,h,d,segments,r):new T.BoxGeometry(w,h,d));return mesh(g,geoCache.get(key),m,x,y,z);}
 export function cyl(g,r,h,x,y,z,m=M.metal,rt=r,segments=20){const key=['c',r,rt,h,segments].join(':');if(!geoCache.has(key))geoCache.set(key,new T.CylinderGeometry(rt,r,h,segments));return mesh(g,geoCache.get(key),m,x,y,z);}
 export function sphere(g,r,x,y,z,m=M.cream,scale){const key='s'+r;if(!geoCache.has(key))geoCache.set(key,new T.SphereGeometry(r,14,10));const o=mesh(g,geoCache.get(key),m,x,y,z);if(scale)o.scale.set(...scale);return o;}
 export function torus(g,r,tube,x,y,z,m=M.metal,rotation=[Math.PI/2,0,0]){const o=mesh(g,new T.TorusGeometry(r,tube,7,32),m,x,y,z);o.rotation.set(...rotation);return o;}

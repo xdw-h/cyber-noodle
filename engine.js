@@ -8,6 +8,7 @@
   const Dining = typeof module === 'object' && module.exports ? require('./dining.js') : globalThis.NoodleDining;
   const District = typeof module === 'object' && module.exports ? require('./district.js') : globalThis.NoodleDistrict;
   const Branch = typeof module === 'object' && module.exports ? require('./branch.js') : globalThis.NoodleBranch;
+  const Town = typeof module === 'object' && module.exports ? require('./town-play.js') : globalThis.NoodleTownPlay;
   const INGREDIENTS = {
     noodles: { name: '鲜米粉', price: 2, perishable: false, color: '#e9c785' },
     greens: { name: '时令青菜', price: 1, perishable: true, color: '#78a87c' },
@@ -35,15 +36,17 @@
     return { startCash: cash, revenue: 0, cogs: 0, waste: 0, operating: 0, purchases: 0, equipment: 0, served: 0, lost: 0, shortage: 0, ...EXTRA_LEDGER };
   }
   function createState(seed) {
-    return { version: 1, day: 1, cash: 800, reputation: 80, inventory: { noodles: 0, greens: 0, egg: 0, beef: 0 },
+    const state = { version: 1, day: 1, cash: 800, reputation: 80, inventory: { noodles: 0, greens: 0, egg: 0, beef: 0 },
       prices: { plain: 12, egg: 15, beef: 20 }, robot: false, phase: 'prep', elapsed: 0, paused: false,
       orders: [], current: null, sequence: 0, seed: (seed >>> 0) || 23571, arrivalIn: 1.2,
       event: null, stats: ledger(800), history: [], totalServed: 0, lastReport: null, achievementDay: null,
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
+    Town.ensure(state); return state;
   }
   function enableFuture(s) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     s.future = true; s.robot = true; s.aiMode = s.aiMode === 'manual' ? 'balanced' : s.aiMode;
     s.drone.owned = true; s.achievementDay = s.achievementDay || s.day;
     Dining.ensure(s).enabled=true;
@@ -66,6 +69,7 @@
   const ingredientCost = recipe => Object.entries(recipe).reduce((sum, [k, n]) => sum + INGREDIENTS[k].price * n, 0);
   function logAI(s, message) { s.aiLog.unshift(message); s.aiLog = s.aiLog.slice(0, 5); }
   function setAIMode(s, mode) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (!['manual', 'balanced', 'profit', 'speed'].includes(mode)) return no('请选择有效的 AI 调度策略。');
     if (mode !== 'manual' && ['open', 'closing'].includes(s.phase) && !s.stats.aiCost) {
       if (s.cash < 12) return no('启用 AI 需要 ¥12 当日算力费用。');
@@ -84,11 +88,13 @@
     return { demand, basket, target, cost: ingredientCost(basket), basis: historical ? `按第 ${r.day} 天已履约餐品结构，增加 12% 需求余量` : '冷启动预测：覆盖现场与三个远程点位，后续按真实销量调整', confidence: historical ? '有历史数据' : '冷启动估计' };
   }
   function setRobotMode(s, mode) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'prep') return no('机器人模式在营业前设置，下一批次开店生效。');
     if (!['standard','turbo','eco'].includes(mode)) return no('请选择有效的机器人模式。');
     s.robotMode = mode; return ok('机器人工作模式已更新。');
   }
   function repairRobot(s) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (!s.robot || s.robotHealth >= 100) return no('机器人状态良好，无需维修。');
     if (s.phase === 'report') return no('先准备下一天，再进行维修。');
     if (s.cash < 35) return no('维修需要 ¥35，请留足现金。');
@@ -96,17 +102,20 @@
     return ok('保养完成，机器人耐久恢复到 100%。');
   }
   function upgradeRobot(s) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'prep' || !s.robot || s.robotLevel >= 2) return no('请在营业前升级尚未达到 Pro 的机器人。');
     if (s.cash < 600) return no('升级机器人 Pro 需要 ¥600。');
-    s.cash -= 600; s.stats.equipment += 600; s.robotLevel = 2; return ok('机器人 Pro 已就绪，制作速度提升 25%。');
+    s.cash -= 600; s.stats.equipment += 600; s.robotLevel = 2; Town.ensure(s).paidRobotUpgrade=true; return ok('机器人 Pro 已就绪，制作速度提升 25%。');
   }
   function upgradeDrone(s) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'prep' || !s.drone.owned || s.drone.level >= 2) return no('请在营业前升级尚未达到 Pro 的无人机。');
     if (s.cash < 500) return no('升级无人机 Pro 需要 ¥500。');
-    s.cash -= 500; s.stats.equipment += 500; s.drone.level = 2; return ok('无人机 Pro 已就绪，航时缩短 25%、任务耗电减少 20%。');
+    s.cash -= 500; s.stats.equipment += 500; s.drone.level = 2; Town.ensure(s).paidDroneUpgrade=true; return ok('无人机 Pro 已就绪，航时缩短 25%、任务耗电减少 20%。');
   }
   function random(s) { s.seed = (Math.imul(1664525, s.seed) + 1013904223) >>> 0; return s.seed / 4294967296; }
   function purchase(s, basket) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'prep') return no('营业前才能采购，先完成今天的营业吧。');
     if (!basket || typeof basket !== 'object' || Array.isArray(basket)) return no('采购数量不正确。');
     const entries = Object.entries(basket);
@@ -119,6 +128,7 @@
     return ok(`食材已送达，支出 ¥${cost}`);
   }
   function setPrice(s, type, price) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'prep') return no('营业期间价格已锁定，明天再调整。');
     const item = MENU[type];
     if (!item || !Number.isInteger(price) || price < Math.ceil(item.base * .8) || price > Math.floor(item.base * 1.2)) return no('售价超出了菜单允许范围。');
@@ -131,7 +141,10 @@
     return {main, branch, total:main+branch, aiFee};
   }
   function openDay(s) {
+    if(Town.ensure(s).terminal)return no('本局已完成破产清算，请开始新游戏。');
     if (s.phase !== 'prep') return no('今天已经开店了。');
+    if(Town.ensure(s).branchSold&&s.branch)s.branch.enabled=false;
+    if(!Town.solvency(s).viable){Town.liquidate(s);return no('资产回收后仍无法营业，本局已完成清算。');}
     const {main:fee,total:totalFee,aiFee}=openingFees(s);
     if (s.cash < totalFee) return no(`开店需要预留 ¥${totalFee} 运营费（主店 ¥${fee}，分店 ¥${Branch.fee(s)}），请减少采购或安排分店休息。`);
     if (s.inventory.noodles < 1 || s.inventory.greens < 1) return no('先采购鲜米粉和青菜，再开始营业。');
@@ -184,6 +197,7 @@
     if (remote && s.elapsed + (s.closingElapsed || 0) - (order.createdAt || 0) > (order.deadline || 42) + (growth.decor.warmer ? 8 : 0)) { price = money(price * .8); s.stats.late++; s.reputation = Math.max(0,s.reputation-1); }
     s.cash = money(s.cash + price); s.stats.revenue = money(s.stats.revenue + price);
     s.stats.served++; s.totalServed++; s.stats[`${order.type}Served`]++;
+    Town.served(s,order,remote);
     if (remote) { s.stats.delivered++; s.totalDelivered++; s.stats.deliveryRevenue = money(s.stats.deliveryRevenue+price); }
     if(order.channel==='dinein'){s.stats.dineInServed++;s.stats.dineInRevenue=money(s.stats.dineInRevenue+price);if(order.serviceDiscount<1)s.reputation=Math.max(0,money(s.reputation-.8));}
     s.reputation = Math.min(100, money(s.reputation + .25));
@@ -203,6 +217,7 @@
   }
   function chargeTransport(s, fee) { s.cash -= fee; s.stats.shipping += fee; s.stats.operating += fee; }
   function dispatchDrone(s, id) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (!['open','closing'].includes(s.phase)) return no('请在营业期间派送。');
     if (!s.drone.owned) return no('无人机尚未接入。');
     if (s.drone.mission) return no('无人机正在执行任务，请等待返航。');
@@ -216,6 +231,7 @@
     return ok(`无人机已飞往${route.name}，约 ${route.seconds} 秒送达。`);
   }
   function dispatchGround(s, id) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (!['open','closing'].includes(s.phase)) return no('请在营业期间派送。');
     if (s.drone.mission) return no('当前运输任务尚未完成，请稍后安排备用配送。');
     const at = s.readyDeliveries.findIndex(o=>o.id===id); if(at<0) return no('没有这份待配送餐食。');
@@ -225,6 +241,7 @@
     return ok('已安排地面备用配送：18 秒送达，费用 ¥8。');
   }
   function requestSupply(s, pack) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'open') return no('应急补货在营业期间使用，开店前可直接采购。');
     if (!SUPPLIES[pack]) return no('请选择有效的补货包。');
     if (!s.drone.owned || s.drone.mission) return no('无人机未就绪或正在执行其他任务。');
@@ -270,7 +287,9 @@
     s.lastReport.totalProfit = money(s.lastReport.profit + (s.lastReport.branch?.profit || 0));
     s.lastReport.totalRevenue = money(s.lastReport.revenue + (s.lastReport.branch?.revenue || 0));
     s.lastReport.totalServed = s.lastReport.served + (s.lastReport.branch?.served || 0);
+    Town.settled(s);
     s.history.push(clone(s.lastReport)); if (s.history.length > 30) s.history.shift();
+    if(!Town.solvency(s).viable)Town.liquidate(s);
   }
   function closeDay(s) {
     if (!['open', 'closing'].includes(s.phase)) return no('今天尚未开始营业，或已经结算。');
@@ -329,6 +348,7 @@
       s.orders = s.orders.filter(o => o.age < o.patience);
       if (lost) { s.stats.lost += lost; s.reputation = Math.max(0, money(s.reputation - lost * 1.2)); }
       s.arrivalIn -= dt;
+      Town.arrivals(s,dt);
       if (s.arrivalIn <= 0) {
         arrive(s);
         const eventOn = s.event && s.elapsed >= s.event.start && s.elapsed < s.event.end;
@@ -349,25 +369,30 @@
     autoDispatch(s,s.phase==='closing');
     if (s.phase === 'closing' && !s.current && !s.drone.mission && !s.readyDeliveries.length && !Dining.hasWork(s) && !Branch.hasWork(s)) settle(s);
   }
-  function tick(s, dt) {
+  function tick(s, dt, quantum = .05) {
+    if(Town.ensure(s).terminal)return;
     if (s.paused || !['open', 'closing'].includes(s.phase) || !Number.isFinite(dt) || dt <= 0) return;
     let remaining = Math.min(dt, 120);
     while (remaining > .000001 && ['open', 'closing'].includes(s.phase)) {
-      const size = Math.min(.05, remaining); step(s, size); remaining -= size;
+      const size = Math.min(quantum === .1 ? .1 : .05, remaining); step(s, size); remaining -= size;
     }
   }
   function nextDay(s) {
+    if(Town.ensure(s).terminal)return no('本局已完成清算，请开始新游戏。');
     if (s.phase !== 'report') return no('先结束今天的营业。');
     s.day++; District.nextDay(s); s.phase = 'prep'; s.elapsed = 0; s.paused = false; s.current = null; s.orders = []; s.event = null; s.readyDeliveries=[];s.drone.mission=null;
     s.closingElapsed = 0; s.weather = s.day % 5 === 0 ? 'storm' : s.day % 3 === 0 ? 'gust' : 'clear'; Growth.ensure(s).claimed = {};
     Branch.nextDay(s);
+    Town.nextDay(s);
     s.stats = ledger(s.cash); return ok(`第 ${s.day} 天，准备开店！`);
   }
   function buyRobot(s) {
+    if(Town.ensure(s).terminal)return no('本局已结束。');
     if (s.phase !== 'prep') return no('机器人需要在营业前安装。');
     if (s.robot) return no('炒粉机器人已经安装。');
     if (s.cash < 1200) return no(`还差 ¥${money(1200 - s.cash)}，继续经营攒一点吧。`);
     s.cash -= 1200; s.stats.equipment += 1200; s.robot = true; s.achievementDay = s.day;
+    Town.ensure(s).paidRobot=true;
     return ok('炒粉机器人已安装！现在每份只需 2 秒，还会自动接单。');
   }
   function advice(s) {
@@ -403,6 +428,7 @@
       if(s.dining===undefined)s.dining=Dining.create(!!s.future);if(!Dining.valid(s.dining))throw Error();Dining.reset(s);
       if(!District.valid(s))throw Error();
       if(!Branch.valid(s))throw Error();
+      if(!Town.valid(s))throw Error();
       if (!int(s.day, 1, 1000000) || !number(s.cash, 0, 1e10) || !number(s.reputation, 0, 100) || typeof s.robot !== 'boolean' || !int(s.seed, 0, 4294967295)) throw Error();
       if (!s.inventory || Object.keys(INGREDIENTS).some(k => !int(s.inventory[k], 0, 1e7))) throw Error();
       if (!s.prices || Object.entries(MENU).some(([k, v]) => !int(s.prices[k], Math.ceil(v.base * .8), Math.floor(v.base * 1.2)))) throw Error();
@@ -425,5 +451,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Dining, District, Branch, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, routeInfo, dispatchDrone, dispatchGround, requestSupply, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Dining, District, Branch, Town, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, routeInfo, dispatchDrone, dispatchGround, requestSupply, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });
