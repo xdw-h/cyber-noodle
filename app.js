@@ -6,14 +6,14 @@
   const money = n => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   const esc = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let state = E.createFutureState(), safe = E.clone(state), corruptRaw = null, storageBlocked = false;
-  let sound = false, audioContext, speed = 1, modalKind = null, modalPaused = false, restoreFocus = null;
+  let sound = true, music = true, speed = 1, modalKind = null, modalPaused = false, restoreFocus = null;
   let lastOrderSignature = '', lastCustomerSignature = '', lastFrame = performance.now(), renderAt = 0;
   let previousServed = 0, previousPhase = 'prep', eventNotified = false, tutorialSeen = false;
   let pendingImport = null;
   try {
     let pref = {};
     try { pref = JSON.parse(localStorage.getItem(PREF_KEY) || '{}') || {}; } catch (_) { /* 偏好设置损坏不能影响经营存档。 */ }
-    sound = pref.sound === true; tutorialSeen = pref.tutorialSeen === true;
+    sound = pref.sound !== false; music = pref.music !== false; tutorialSeen = pref.tutorialSeen === true;
   } catch (_) { storageBlocked = true; }
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -26,7 +26,7 @@
   previousServed = state.stats.served; previousPhase = state.phase;
 
   function savePrefs() {
-    try { localStorage.setItem(PREF_KEY, JSON.stringify({ sound, tutorialSeen })); } catch (_) { storageBlocked = true; }
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ sound, music, tutorialSeen })); } catch (_) { storageBlocked = true; }
   }
   function save() {
     if (corruptRaw !== null) return;
@@ -47,17 +47,7 @@
     setTimeout(() => { item.classList.add('toast-exit'); setTimeout(() => item.remove(), 220); }, 3500);
   }
   function tone(kind) {
-    if (!sound) return;
-    try {
-      audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
-      if (audioContext.state === 'suspended') audioContext.resume();
-      const notes = kind === 'sale' ? [660, 880] : kind === 'upgrade' ? [440, 554, 660, 880] : [440];
-      notes.forEach((hz, i) => {
-        const o = audioContext.createOscillator(), gain = audioContext.createGain(), t = audioContext.currentTime + i * .09;
-        o.type = 'sine'; o.frequency.value = hz; gain.gain.setValueAtTime(.0001, t); gain.gain.exponentialRampToValueAtTime(.045, t + .012); gain.gain.exponentialRampToValueAtTime(.0001, t + .13);
-        o.connect(gain); gain.connect(audioContext.destination); o.start(t); o.stop(t + .15);
-      });
-    } catch (_) { sound = false; savePrefs(); renderSound(); }
+    if(sound)window.NoodleAudio.effect(kind);
   }
   function dish(type, size) {
     const color = E.MENU[type].color;
@@ -73,6 +63,8 @@
     return `<svg viewBox="0 0 40 40" aria-hidden="true">${content[key]}</svg>`;
   }
   function renderSound() {
+    window.NoodleAudio.configure({effects:sound,music,paused:state.paused});
+    $('music-button').setAttribute('aria-label',music?'关闭背景音乐':'开启背景音乐');$('music-button').setAttribute('aria-pressed',String(music));$('music-button').title=music?'关闭背景音乐':'开启背景音乐';$('music-button').textContent=music?'♫':'♫ ×';
     $('sound-button').innerHTML = `${icons('sound')}${sound ? '' : '<span class="sound-off"></span>'}`;
     $('sound-button').setAttribute('aria-label', sound ? '关闭音效' : '开启音效');
     $('sound-button').title = sound ? '关闭音效' : '开启音效';
@@ -117,6 +109,7 @@
     $('idle-visitor').style.display = ['open', 'closing'].includes(state.phase) ? 'none' : '';
   }
   function render() {
+    window.NoodleAudio.configure({effects:sound,music,paused:state.paused});
     window.NoodleOperationsUI.render(state);
     const active = ['open', 'closing'].includes(state.phase);
     const cashParts = state.cash.toFixed(2).split('.');
@@ -310,6 +303,7 @@
     'analyze-demand'() { const d=E.analyzeDemand($('demand-text').value);$('demand-result').textContent=`${E.MENU[d.type].name} · ${d.tags.join(' / ')||'标准口味'} · 配方：${Object.entries(d.recipe).map(([k,n])=>E.INGREDIENTS[k].name+'×'+n).join('、')}`; },
     'close-modal': closeModal,
     sound() { sound = !sound; savePrefs(); renderSound(); if (sound) tone('sale'); toast(sound ? '音效已开启' : '音效已关闭'); },
+    music() { music=!music;savePrefs();renderSound();toast(music?'背景音乐已开启':'背景音乐已关闭'); },
     pause() {
       if (!['open', 'closing'].includes(state.phase)) return;
       state.paused = !state.paused; lastFrame = performance.now(); render();
