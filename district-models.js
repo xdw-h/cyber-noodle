@@ -2,6 +2,11 @@ import * as T from 'three';
 import {M,group,box,cyl,sphere,torus,link,label,planter,batch,colorMat,mesh,bowl,rnd} from './model-kit.js';
 
 export const PLACES={
+  town:{name:'春日里 · 小镇全景',target:[0,1,3],offset:[72,76,88],size:90,copy:'5.4 倍建模面积：住宅街、商店街、北街钟楼、河岸公园与镇民广场。拖动探索，日落后路灯自动亮起。'},
+  'town-north':{name:'北街 · 钟楼与住宅',target:[0,1,-25],offset:[19,23,29],size:29,copy:'钟楼、坡顶住宅与沿街绿化，北街道路连接东西两侧社区。'},
+  'town-west':{name:'西街 · 榆树住宅区',target:[-35,1,-3],offset:[21,25,31],size:35,copy:'住宅、书店与河岸公园，沿连续人行道向老街步行。'},
+  'town-east':{name:'东街 · 商业生活区',target:[35,1,0],offset:[22,25,30],size:35,copy:'面包房、花铺、超市与活动中心。夜间橱窗和路灯照亮街道。'},
+  'town-river':{name:'南岸 · 镇民广场',target:[0,1,30],offset:[23,26,32],size:38,copy:'穿过老街双桥抵达广场、喷泉、图书馆与诊所，沿河岸公园散步。'},
   overview:{name:'春日里 · 科技美食街区',target:[0,1,3],offset:[31,31,39],size:37,copy:'中央厨房备料 → 机器人小店出餐 → 三片街区配送。点击建筑或上方地点切换镜头。'},
   front:{name:'好好炒粉 · 街角一号店',target:[0,1,1],offset:[10,9,14],size:12.8,copy:'顾客到店等位，落座点单，机器人送餐。用餐后清桌，座位重新开放。'},
   dining:{name:'花园堂食区 · 四桌八座',target:[-1,1,5.8],offset:[8,8,12],size:10,copy:'接待入座后点单，小满机器人送餐收款；用餐结束后，清理空碗才能再次接客。',action:'dining',button:'接待与清桌 →'},

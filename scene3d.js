@@ -13,6 +13,7 @@ import {buildGuest,poseGuest} from './guest-models.js';
 import {buildService,poseService} from './service-models.js';
 import {buildDistrictLife,poseDistrictLife} from './district-life.js';
 import {buildBranch,poseBranch} from './branch-models.js';
+import {buildTown,poseTown} from './town-models.js';
 
 const host=document.getElementById('scene-wrap'),loading=document.getElementById('three-loading');
 let renderer;
@@ -22,14 +23,16 @@ renderer.domElement.id='three-canvas';renderer.domElement.setAttribute('aria-lab
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
 const scene=new T.Scene();scene.background=new T.Color('#f0e8d5');
 const environment=new RoomEnvironment(),pmrem=new T.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(environment,.04).texture;scene.environmentIntensity=.32;environment.dispose();pmrem.dispose();
-const camera=new T.OrthographicCamera(-7,7,5,-5,.1,100);camera.position.set(11,10,14);
-const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,1,0);controls.enableDamping=true;controls.dampingFactor=.075;controls.minPolarAngle=.34;controls.maxPolarAngle=Math.PI*.46;controls.minZoom=.5;controls.maxZoom=4;controls.enablePan=true;controls.maxTargetRadius=40;controls.update();
+const camera=new T.OrthographicCamera(-7,7,5,-5,.1,400);camera.position.set(11,10,14);
+const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,1,0);controls.enableDamping=true;controls.dampingFactor=.075;controls.minPolarAngle=.34;controls.maxPolarAngle=Math.PI*.46;controls.minZoom=.45;controls.maxZoom=6;controls.enablePan=true;controls.maxTargetRadius=85;controls.update();
 const hemisphere=new T.HemisphereLight('#fff3d6','#8b9582',1.5);scene.add(hemisphere);
 const sun=new T.DirectionalLight('#ffdfa4',3.2);sun.position.set(-16,32,14);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-28,right:28,top:28,bottom:-28,near:1,far:85});sun.shadow.bias=-.00015;sun.shadow.normalBias=.035;sun.shadow.radius=3;scene.add(sun);
 const fill=new T.DirectionalLight('#ddebea',.8);fill.position.set(7,5,-7);scene.add(fill);
-const floor=new T.Mesh(new T.PlaneGeometry(200,200),new T.MeshStandardMaterial({color:'#f0e7d1',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.33;floor.receiveShadow=true;scene.add(floor);
+const floor=new T.Mesh(new T.PlaneGeometry(1000,1000),new T.MeshStandardMaterial({color:'#f0e7d1',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.93;floor.receiveShadow=true;scene.add(floor);
 const world=group(scene,'好好炒粉 · 3D game diorama');
 buildDistrict(world);
+const town=buildTown(world);
+const cameraBar=document.querySelector('[data-camera="overview"]').parentElement;for(const [name,title]of [['town','小镇'],['town-north','北街'],['town-west','西街'],['town-east','东街'],['town-river','南岸']]){const button=document.createElement('button');button.dataset.camera=name;button.textContent=title;button.className=document.querySelector('[data-camera="overview"]').className;if(name==='town')cameraBar.prepend(button);else cameraBar.append(button);}
 const branchModels=buildBranch(world);
 const districtLife=buildDistrictLife(world,DESTINATIONS);
 buildArchitecture(world);buildKitchen(world);buildCounter(world);buildGarden(world);buildHelipad(world);buildTree(world,-4.12,-2.48,1.04);buildTree(world,3.75,-2.68,1.13);
@@ -37,7 +40,7 @@ const robot=buildRobot(world),stove=buildStove(world),terminal=buildTerminal(wor
 const chef=buildPerson(world,'chef');chef.root.position.set(.74,.38,-.23);chef.root.rotation.y=.12;
 const guestFlow=window.NoodleGuestFlow,guests=guestFlow.create(),guestModels=new Map();
 const dining=window.NoodleDining,service=buildService(world,dining.SEATS);
-const pedestrians=[];for(let i=0;i<6;i++)pedestrians.push(buildGuest(world,1000+i,i));
+const pedestrians=[];for(let i=0;i<18;i++)pedestrians.push(buildGuest(world,1000+i,i));
 const kitchenSupply=group(world,'Central kitchen dispatch',-3.2,.28,-3.43);box(kitchenSupply,.58,.5,.45,0,.25,0,M.lightwood);label(kitchenSupply,'厨房补给',.51,.22,0,.29,.237,{color:'#80643c'});batch(kitchenSupply);
 const routeMaterial=new T.LineDashedMaterial({color:'#679f94',dashSize:.13,gapSize:.09,transparent:true,opacity:.7});let routeLine;
 const composer=new EffectComposer(renderer),aoPass=new SSAOPass(scene,camera,512,512,16);aoPass.kernelRadius=.36;aoPass.minDistance=.0001;aoPass.maxDistance=.018;composer.addPass(new RenderPass(scene,camera));composer.addPass(aoPass);composer.addPass(new OutputPass());let highQuality=innerWidth>740;
@@ -55,7 +58,7 @@ function sync(s){state=s;poseBranch(branchModels,s,time);robot.base.visible=s.ro
 function resize(){const rect=host.getBoundingClientRect(),w=Math.max(1,rect.width),h=Math.max(1,rect.height);renderer.setSize(w,h,false);composer.setSize(w,h);const aspect=w/h,base=PLACES[activePlace].size,view=Math.max(base,base*1.12/aspect);camera.left=-view*aspect/2;camera.right=view*aspect/2;camera.top=view/2;camera.bottom=-view/2;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(host);resize();
 function view(name){activePlace=PLACES[name]?name:'overview';const p=PLACES[activePlace];controls.target.set(...p.target);camera.position.set(...p.target).add(new T.Vector3(...p.offset));camera.zoom=1;resize();controls.update();document.getElementById('district-name').textContent=p.name;document.getElementById('district-copy').textContent=p.copy;const button=document.getElementById('district-action');button.hidden=!p.action;button.textContent=p.button||'';if(p.action)button.dataset.action=p.action;else delete button.dataset.action;document.querySelectorAll('[data-camera]').forEach(b=>b.classList.toggle('selected',b.dataset.camera===activePlace));}
-view('overview');
+view('town');
 let bubbleLayout=[];
 const bubblePoint=new T.Vector3(),bubbleRight=new T.Vector3(),bubbleUp=new T.Vector3();
 function arrangeBubbles(){
@@ -83,9 +86,9 @@ function animate(now){requestAnimationFrame(animate);const dt=Math.min(.2,(now-p
   for(const g of crowd){const key=g.key;if(key==='server')continue;if(!guestModels.has(key)){const model=buildGuest(world,g.id,g.profile);if(key.startsWith('d'))model.root.userData={action:'dining-guest',value:g.id,title:g.child?'亲子小朋友':g.name};guestModels.set(key,model);}poseGuest(guestModels.get(key),g,dining.SEATS,time,camera,dt*gameSpeed,!!s?.paused,reducedMotion.matches);}
   for(const [id,model] of guestModels)if(!people.has(id)){for(const object of [model.root,model.meal,model.bubble]){object.traverse(o=>{if(o.isMesh){if(!o.userData.dynamic)o.geometry.dispose();if(o===model.bubble.pointer)o.material.dispose();if(o.material.map?.isCanvasTexture&&object===model.bubble){o.material.map.dispose();o.material.dispose();}}});object.removeFromParent();}guestModels.delete(id);}
   if(s){poseBranch(branchModels,s,time);poseDistrictLife(districtLife,s,time,camera,dt,reducedMotion.matches);poseService(service,s,time,dt*gameSpeed,reducedMotion.matches);const c=dining.counts(s);document.getElementById('guest-status').textContent=`等位 ${c.queue} · 就座 ${c.occupied}/8 · 空碗 ${c.dirty} · 自取 ${guests.guests.size}`;}
-  pedestrians.forEach((p,i)=>{const a=time*.035+i*Math.PI/3,x=19*Math.sin(a),z=12.65+.5*Math.cos(a);poseGuest(p,{id:1000+i,x,z,facing:Math.atan2(19*Math.cos(a),-.5*Math.sin(a)),phase:'leaving',group:'solo',walk:0},[],time,camera,dt,!!s?.paused,reducedMotion.matches);});
-  const evening=s&&(s.elapsed>=50||s.phase==='report');const goal=evening?1.1:1.5;hemisphere.intensity=T.MathUtils.lerp(hemisphere.intensity,goal,.02);sun.intensity=T.MathUtils.lerp(sun.intensity,evening?2.8:3.2,.02);
-  controls.update();camera.updateMatrixWorld();arrangeBubbles();if(highQuality)composer.render();else renderer.render(scene,camera);frames++;
+  pedestrians.forEach((p,i)=>{const a=time*(i<6?.035:.055)+i*Math.PI/3,x=i<6?19*Math.sin(a):(i%2?-35:35)+8*Math.sin(a),z=i<6?12.65+.5*Math.cos(a):[-15,7.7,33.5][Math.floor((i-6)/4)]+.5*Math.cos(a);poseGuest(p,{id:1000+i,x,z,facing:Math.atan2((i<6?19:8)*Math.cos(a),-.5*Math.sin(a)),phase:'leaving',group:'solo',walk:0},[],time,camera,dt,!!s?.paused,reducedMotion.matches);});
+  poseTown(town,s,scene,camera,controls,sun,hemisphere,fill,floor);
+  controls.update();camera.updateMatrixWorld();arrangeBubbles();renderer.shadowMap.enabled=highQuality;if(highQuality)composer.render();else renderer.render(scene,camera);frames++;
   if(now-lastInfo>2000){document.getElementById('three-quality').textContent=highQuality?'精细光照 ⇄':'流畅模式 ⇄';lastInfo=now;}
 }
 requestAnimationFrame(animate);
@@ -96,8 +99,8 @@ renderer.domElement.addEventListener('pointermove',e=>{if(e.buttons){tooltip.hid
 renderer.domElement.addEventListener('pointerleave',()=>{tooltip.hidden=true;});
 renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5)return;const object=pick(e);if(object){if(object.userData.view){view(object.userData.view);return;}const button=document.createElement('button');button.dataset.action=object.userData.action;if(object.userData.value!==undefined)button.dataset.value=object.userData.value;button.hidden=true;document.body.appendChild(button);button.click();button.remove();}});
 document.querySelectorAll('[data-camera]').forEach(b=>b.addEventListener('click',()=>view(b.dataset.camera)));
-document.getElementById('three-zoom-in').addEventListener('click',()=>{camera.zoom=Math.min(3,camera.zoom*1.17);camera.updateProjectionMatrix();});
-document.getElementById('three-zoom-out').addEventListener('click',()=>{camera.zoom=Math.max(.65,camera.zoom/1.17);camera.updateProjectionMatrix();});
+document.getElementById('three-zoom-in').addEventListener('click',()=>{camera.zoom=Math.min(6,camera.zoom*1.17);camera.updateProjectionMatrix();});
+document.getElementById('three-zoom-out').addEventListener('click',()=>{camera.zoom=Math.max(.45,camera.zoom/1.17);camera.updateProjectionMatrix();});
 document.getElementById('three-expand').addEventListener('click',()=>{const expanded=document.body.classList.toggle('scene-expanded');document.getElementById('three-expand').textContent=expanded?'收起场景 ↙':'放大场景 ↗';setTimeout(resize,80);});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('scene-expanded')){document.body.classList.remove('scene-expanded');document.getElementById('three-expand').textContent='放大场景 ↗';resize();}});
 async function exportModel(){const button=document.getElementById('three-export');button.disabled=true;button.textContent='正在导出…';try{const exportRoot=world.clone(true);exportRoot.traverse(o=>{if(o.name.startsWith('Purchased'))o.visible=true;});const data=await new GLTFExporter().parseAsync(exportRoot,{binary:true,onlyVisible:true,maxTextureSize:1024});const url=URL.createObjectURL(new Blob([data],{type:'model/gltf-binary'})),a=document.createElement('a');a.href=url;a.download='赛博炒粉-3D场景.glb';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}catch(error){console.error(error);document.getElementById('three-live').textContent='模型导出失败，请重试';}finally{button.disabled=false;button.textContent='导出模型 ↓';}}
@@ -112,5 +115,6 @@ window.Noodle3D.polishSnapshot=()=>({guests:[...guestModels].map(([id,m])=>({id,
 window.Noodle3D.handoffSnapshot=()=>({transfer:service.transfer?structuredClone(service.transfer):null,foodVisible:service.food.visible,armVisible:service.servingArm.visible,meals:[...guestModels].filter(([id,m])=>m.meal.visible).map(([id])=>id)});
 window.Noodle3D.feedbackSnapshot=()=>({width:host.clientWidth,height:host.clientHeight,bubbles:structuredClone(bubbleLayout),gestures:[...guestModels].map(([id,m])=>({id,...m.gesture,arms:m.arms.map(a=>a.rotation.x)}))});
 window.Noodle3D.cleanArmSnapshot=()=>({target:service.cleanReach?structuredClone(service.cleanReach):null,tip:service.servingArm.localToWorld(new T.Vector3(0,0,1)).toArray(),visible:service.servingArm.visible});
+window.Noodle3D.townSnapshot=()=>({bounds:globalThis.NoodleTownCycle.bounds,areaRatio:globalThis.NoodleTownCycle.areaRatio,buildings:town.buildings.length,footprints:town.buildings.map(b=>({...b})),lamps:town.lamps.length,cycle:{...town.cycle},lights:town.lights.map(l=>({intensity:l.intensity,position:l.position.toArray()})),windowGlow:town.windowMaterial.emissiveIntensity,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles});
 window.Noodle3D.residentSnapshot=()=>Object.entries(districtLife.residents).map(([id,p])=>({id,position:p.companion.root.position.toArray(),legs:p.companion.legs.map(l=>l.hip.rotation.x),knees:p.companion.legs.map(l=>l.knee.rotation.x),feet:p.companion.legs.map(l=>l.ankle.localToWorld(new T.Vector3(0,-.045,.08)).toArray()),arms:p.companion.arms.map(a=>a.rotation.x)}));
 window.Noodle3D.finishingSnapshot=()=>({paused:!!state?.paused,collection:structuredClone(service.collection||[]),stack:service.dirty.visible?service.dirty.children.filter(g=>g.visible).length:0,meals:[...guestModels].filter(([id,m])=>m.meal.visible).map(([id,m])=>({id,remaining:m.remaining,foodVisible:m.mealFood.visible})),pointers:[...guestModels].filter(([id,m])=>m.bubble.visible).map(([id,m])=>({id,visible:!!m.bubble.pointer?.visible,length:m.bubble.pointer?.scale.y}))});
