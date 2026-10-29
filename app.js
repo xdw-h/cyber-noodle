@@ -117,6 +117,7 @@
     $('idle-visitor').style.display = ['open', 'closing'].includes(state.phase) ? 'none' : '';
   }
   function render() {
+    window.NoodleOperationsUI.render(state);
     const active = ['open', 'closing'].includes(state.phase);
     const cashParts = state.cash.toFixed(2).split('.');
     $('cash').innerHTML = `¥${money(Number(cashParts[0]))}<span>.${cashParts[1]}</span>`;
@@ -151,7 +152,7 @@
     $('robot-progress').style.width = `${state.robot ? 100 : Math.min(100, state.cash / 1200 * 100)}%`;
     $('goal-saved').textContent = state.robot ? `第 ${state.achievementDay} 天达成` : `已攒 ¥${money(state.cash)}`;
     $('goal-cost').textContent = state.robot ? (state.achievementDay <= 7 ? '七日挑战 ✓' : '智能小店 ✓') : '目标 ¥1,200';
-    $('ai-advice').textContent = E.advice(state);
+    $('ai-advice').textContent = state.lastReport&&['prep','report'].includes(state.phase)?window.NoodleOperations.review(state.lastReport)[0]:E.advice(state);
     const main = $('open-button');
     main.classList.toggle('service', active);
     main.innerHTML = `${icons(state.phase === 'prep' ? 'sun' : state.phase === 'report' ? 'chart' : 'bowl')}<span>${state.phase === 'prep' ? '开门营业' : state.phase === 'report' ? '查看日结' : state.phase === 'closing' ? '正在收摊…' : '收摊结算'}</span>${icons('arrow')}`;
@@ -175,6 +176,7 @@
       if (modalPaused) state.paused = true;
     }
     modalKind = kind; $('modal-content').innerHTML = html; $('modal-backdrop').hidden = false;
+    if(kind==='report')window.NoodleOperationsUI.report(state);
     document.body.classList.add('modal-open'); render();
     const focus = $('modal').querySelector('button:not(:disabled), input:not(:disabled)');
     if (focus) focus.focus({ preventScroll: true });

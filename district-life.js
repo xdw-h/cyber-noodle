@@ -4,7 +4,8 @@ function person(world,name,color){
   const root=group(world,name),shirt=colorMat(color),body=group(root,'上身',0,.82,0);
   box(body,.39,.5,.28,0,.23,0,shirt,.09);box(body,.24,.3,.04,0,.2,.16,M.canvas,.02);batch(body);
   const head=group(root,'面孔',0,1.52,0);sphere(head,.22,0,0,0,M.skin,[.95,1.03,.9]);sphere(head,.225,0,.09,-.025,M.hair,[1,.72,.9]);for(const x of [-.075,.075])sphere(head,.017,x,-.02,.2,M.hair);link(head,[-.035,-.1,.18],[.035,-.1,.18],.006,M.hair);batch(head);
-  const arms=[],legs=[];for(const side of [-1,1]){const arm=group(root,'签收手臂',side*.245,1.24,0);link(arm,[0,0,0],[side*.025,-.3,.02],.06,shirt);sphere(arm,.06,side*.025,-.32,.02,M.skin);batch(arm);arms.push(arm);const leg=group(root,'行走腿',side*.115,.83,0);link(leg,[0,0,0],[0,-.53,0],.075,M.pants);box(leg,.17,.09,.27,0,-.55,.08,M.iron,.04);batch(leg);legs.push(leg);}
+  const arms=[],legs=[];for(const side of [-1,1]){const arm=group(root,'签收手臂',side*.245,1.24,0);link(arm,[0,0,0],[side*.025,-.3,.02],.06,shirt);sphere(arm,.06,side*.025,-.32,.02,M.skin);batch(arm);arms.push(arm);
+    const hip=group(root,'大腿',side*.115,.85,0);link(hip,[0,0,0],[0,-.33,0],.075,M.pants);batch(hip);const knee=group(hip,'膝盖',0,-.33,0);link(knee,[0,0,0],[0,-.32,0],.065,M.pants);batch(knee);const ankle=group(knee,'脚掌',0,-.32,0);box(ankle,.17,.09,.27,0,0,.08,M.iron,.04);batch(ankle);const pose=globalThis.NoodleMotion.leg(0,.61);hip.rotation.x=pose.hip;knee.rotation.x=pose.knee;ankle.rotation.x=pose.ankle;legs.push({hip,knee,ankle});}
   return {root,body,head,arms,legs};
 }
 
@@ -39,8 +40,8 @@ export function poseDistrictLife(life,s,time,camera,dt=1/60,reduced=false){
     p.bubble.userData={anchor:{x:p.x,y:2.5,z:p.z},wanted:p.bubble.visible,priority:inbound?5:received?4:2,order:0};
     p.ring.visible=inbound||d.selected===key&&d.status==='active';p.ring.scale.setScalar(1+Math.sin(time*2)*.035);
     const a=time*.24+key.length,g={x:p.x+1.55+Math.sin(a)*.35,z:p.z+.6+Math.cos(a)*.15,facing:Math.atan2(Math.cos(a)*.35,-Math.sin(a)*.15)};
-    p.motion=motion.advance(p.motion,g,dt);p.companion.root.position.set(p.motion.x,.24,p.motion.z);p.companion.root.rotation.y=p.motion.yaw;const gait=motion.stroll(p.motion.distance,p.motion.amount);p.companion.legs.forEach((leg,i)=>leg.rotation.x=gait.legs[i]);p.companion.arms.forEach((arm,i)=>arm.rotation.x=gait.arms[i]);
+    p.motion=motion.advance(p.motion,g,dt);const scale=p.companion.root.scale.y;p.npc.root.position.y=motion.baseHeight(1);p.companion.root.position.set(p.motion.x,motion.baseHeight(scale),p.motion.z);p.companion.root.rotation.y=p.motion.yaw;const gait=motion.stroll(p.motion.distance/scale,p.motion.amount);p.companion.legs.forEach((leg,i)=>{const foot=motion.foot(p.motion.distance/scale*2,i,motion.smooth(p.motion.amount/.12)*.5),pose=motion.leg(foot.z,.61-foot.lift);leg.hip.rotation.x=pose.hip;leg.knee.rotation.x=pose.knee;leg.ankle.rotation.x=pose.ankle;});p.companion.arms.forEach((arm,i)=>arm.rotation.x=gait.arms[i]);
   }
-  const supplying=mission?.kind==='supply';life.warehouse.head.rotation.x=supplying?.12:0;life.warehouse.arms.forEach(arm=>arm.rotation.x=-.9);
+  const supplying=mission?.kind==='supply';life.warehouse.root.position.y=motion.baseHeight(1);life.warehouse.head.rotation.x=supplying?.12:0;life.warehouse.arms.forEach(arm=>arm.rotation.x=-.9);
   life.crates.forEach((g,i)=>g.position.set(-14+(i*.8+(supplying?time*.6:0))%3.3,1.16,-4.8));
 }

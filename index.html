@@ -7,7 +7,7 @@
   <title>赛博炒粉 · 3D 科技小店</title>
   <meta name="description" content="经营好好炒粉小店，让 AI 排单、机器人炒粉、无人机配送，体验堂食与双店经营。免费单机浏览器游戏。">
   <meta name="application-name" content="赛博炒粉">
-  <meta name="application-version" content="0.1.0">
+  <meta name="application-version" content="0.2.0">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23d95e38'/%3E%3Cpath d='M12 31h40a20 20 0 01-40 0' fill='%23fff2d4'/%3E%3Cpath d='M22 14v11m10-14v14m10-11v11' stroke='%23fff2d4' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="growth.css">
@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="dining.css">
   <link rel="stylesheet" href="district.css">
   <link rel="stylesheet" href="branch.css">
+  <link rel="stylesheet" href="operations.css">
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
@@ -39,7 +40,7 @@
 </defs></svg>
 
 <header class="topbar">
-  <a href="#" class="brand" aria-label="赛博炒粉首页，v0.1.0 体验版"><span class="brand-mark"><svg><use href="#i-bowl"/></svg></span><span>赛博炒粉<small>v0.1.0 · 体验版</small></span></a>
+  <a href="#" class="brand" aria-label="赛博炒粉首页，v0.2.0 体验版"><span class="brand-mark"><svg><use href="#i-bowl"/></svg></span><span>赛博炒粉<small>v0.2.0 · 体验版</small></span></a>
   <nav class="desktop-nav" aria-label="主导航"><span class="nav-item active">小店经营</span><button class="nav-item" data-action="roadmap">成长手册 <span class="tiny-tag">4 阶段</span></button></nav>
   <div class="top-tools"><span class="save-status" id="save-status"><span class="status-dot"></span>本地存档已就绪</span><button class="icon-button" data-action="sound" id="sound-button" title="开启音效" aria-label="开启音效"><svg><use href="#i-sound"/></svg><span class="sound-off"></span></button><button class="icon-button" data-action="help" title="玩法与存档" aria-label="玩法与存档"><svg><use href="#i-help"/></svg></button></div>
 </header>
@@ -188,6 +189,6 @@
 
 <div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div id="modal-content"></div></section></div>
 <div class="toast-region" id="toasts" role="status" aria-live="polite"></div>
-<script src="growth.js"></script><script src="travel-routes.js"></script><script src="dining.js"></script><script src="district.js"></script><script src="branch.js"></script><script src="engine.js"></script><script src="tech.js"></script><script src="growth-ui.js"></script><script src="guest-flow.js"></script><script src="dining-ui.js"></script><script src="district-ui.js"></script><script src="branch-ui.js"></script><script src="app.js"></script><script type="module" src="scene3d.js"></script>
+<script src="growth.js"></script><script src="travel-routes.js"></script><script src="dining.js"></script><script src="district.js"></script><script src="branch.js"></script><script src="engine.js"></script><script src="tech.js"></script><script src="growth-ui.js"></script><script src="guest-flow.js"></script><script src="dining-ui.js"></script><script src="district-ui.js"></script><script src="branch-ui.js"></script><script src="operations.js"></script><script src="operations-ui.js"></script><script src="app.js"></script><script type="module" src="scene3d.js"></script>
 </body>
 </html>
