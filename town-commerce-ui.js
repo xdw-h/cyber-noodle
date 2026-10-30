@@ -27,13 +27,18 @@
     const v=app.E.Commerce?.venue(app.state,id);if(!v)return false;
     app.openModal('town-commerce',app.modalHead(v.name,'居民到店、排队和付款都跟随营业时钟；打开面板时经营暂停。')+`<section class="commerce-panel" data-venue="${esc(id)}">${venueContent(app.state,id)}</section>`);return true;
   }
+  function needDetail(need){
+    if(!need)return '<p class="commerce-note">下一营业日将按居民需求、偏好和预算安排出行；今天保留原有行程。</p>';
+    const p=need.preferences||{};
+    return `<section class="commerce-needs"><h4>今日需求 · ${esc(need.plannedVenue||'暂无商铺出行')}</h4><p>${esc(need.reason)}</p>${metrics([['生活消费预算',money(need.budget)],['晨间可用钱包',money(need.openingWallet)],['今日可用消费额',money(need.availableBudget)]])}<p>早餐习惯：${esc(p.breakfast||'-')}。阅读偏好：${esc(p.reading||'-')}。园艺偏好：${esc(p.gardening||'-')}。</p><p class="commerce-note">理发后至少间隔 ${number(p.hairInterval)} 天，诊所照护后至少间隔 ${number(p.clinicInterval)} 天再产生对应需求。出行安排依据晨间记录，付款后仍保留当天的决定；没有需求或消费额不足时照常生活。</p></section>`;
+  }
   function resident(s,id){
     const p=commerce()?.person(s,id);if(!p)return '<p class="commerce-note">居民钱包与商铺消费将在下一营业日启用。</p>';
     const recent=p.recent||[],talk=p.reading>0||p.gardening>0;
-    return `<section class="commerce-resident"><h3>街坊生活 · 钱包与兴趣</h3>${metrics([['生活钱包',money(p.wallet)],['累计商铺支出',money(p.spent)],['阅读兴趣',number(p.reading)],['园艺兴趣',number(p.gardening)],['交流熟悉度',number(p.rapport)+' / 3'],['用餐耐心加成',number(p.patience)+' 秒']])}<p>生活额度用于居民在街区的消费，与玩家经营资金分开。${p.patience?'服务带来的耐心加成仅在有效天数内生效。':'理发或完成诊所照护后，可短期改善用餐耐心。'}</p>${talk?`<p>可聊话题：${p.reading>0?'读书':''}${p.reading>0&&p.gardening>0?'、':''}${p.gardening>0?'园艺':''}。交流每天一次，熟悉度最多 3 级，可提高自然来店意愿。</p>${button('commerce-chat',p.chatAvailable?'聊聊最近的生活':p.rapport>=3?'交流熟悉度已满':p.lastChatDay===s.day?'今天已经聊过':'营业前或日结后再聊',id,!p.chatAvailable)}`:'<p>还没有形成阅读或园艺话题。居民实际买书、买花后再来聊聊。</p>'}<h4>最近商铺消费 · 最多五条</h4>${recent.length?receipts(recent,true):'<p class="commerce-empty">还没有实际商铺消费记录。</p>'}</section>`;
+    return `<section class="commerce-resident"><h3>街坊生活 · 钱包与兴趣</h3>${metrics([['生活钱包',money(p.wallet)],['累计商铺支出',money(p.spent)],['阅读兴趣',number(p.reading)],['园艺兴趣',number(p.gardening)],['交流熟悉度',number(p.rapport)+' / 3'],['用餐耐心加成',number(p.patience)+' 秒']])}${needDetail(p.need)}<p>生活额度用于居民在街区的消费，与玩家经营资金分开。${p.patience?'服务带来的耐心加成仅在有效天数内生效。':'理发或完成诊所照护后，可短期改善用餐耐心。'}</p>${talk?`<p>可聊话题：${p.reading>0?'读书':''}${p.reading>0&&p.gardening>0?'、':''}${p.gardening>0?'园艺':''}。交流每天一次，熟悉度最多 3 级，可提高自然来店意愿。</p>${button('commerce-chat',p.chatAvailable?'聊聊最近的生活':p.rapport>=3?'交流熟悉度已满':p.lastChatDay===s.day?'今天已经聊过':'营业前或日结后再聊',id,!p.chatAvailable)}`:'<p>还没有形成阅读或园艺话题。居民实际买书、买花后再来聊聊。</p>'}<h4>最近商铺消费 · 最多五条</h4>${recent.length?receipts(recent,true):'<p class="commerce-empty">还没有实际商铺消费记录。</p>'}</section>`;
   }
   function directory(s){
-    return '<section class="commerce-directory"><h3>商店街 · 居民的一天</h3><div class="commerce-shops">'+definitions().map(v=>{const live=commerce().venue(s,v.id);return `<article><strong>${esc(v.name)}</strong><span>${money(v.price)} / 次 · ${live?.active?'今日成交 '+number(live.customers)+' 人':'下一营业日启用'}</span>${button('commerce-building','查看商铺',v.id)}</article>`;}).join('')+'</div><p class="commerce-note">居民会去买早餐、书和鲜花，也会排队理发、接受日常照护。商铺收款独立记账。</p></section>';
+    return '<section class="commerce-directory"><h3>商店街 · 居民的一天</h3><div class="commerce-shops">'+definitions().map(v=>{const live=commerce().venue(s,v.id);return `<article><strong>${esc(v.name)}</strong><span>${money(v.price)} / 次 · ${live?.active?'今日成交 '+number(live.customers)+' 人':'下一营业日启用'}</span>${button('commerce-building','查看商铺',v.id)}</article>`;}).join('')+'</div><p class="commerce-note">居民按生活需求、个人偏好与预算安排出行，每天最多选择一次商铺消费；没有合适需求时继续日常生活。商铺收款独立记账。</p></section>';
   }
   function report(input){
     const saved=input?.phase?commerce()?.report(input):input?.commerce||(input?.version===1&&input.separate===true&&Array.isArray(input.venues)?input:undefined);if(!saved)return '';
