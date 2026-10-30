@@ -13,6 +13,7 @@
   const Sources = typeof module === 'object' && module.exports ? require('./source-ledger.js') : globalThis.NoodleSources;
   const Relationships = typeof module === 'object' && module.exports ? require('./resident-relationships.js') : globalThis.NoodleRelationships;
   const Commissions = typeof module === 'object' && module.exports ? require('./resident-commissions.js') : globalThis.NoodleCommissions;
+  const Events = typeof module === 'object' && module.exports ? require('./town-events.js') : globalThis.NoodleTownEvents;
   const INGREDIENTS = {
     noodles: { name: '鲜米粉', price: 2, perishable: false, color: '#e9c785' },
     greens: { name: '时令青菜', price: 1, perishable: true, color: '#78a87c' },
@@ -30,6 +31,7 @@
     camp: { name: '江畔营地', seconds: 12, battery: 36, fee: 5, premium: 12, x: 65, y: 320 }
   };
   Branch.configure(INGREDIENTS, MENU);
+  Events.configure(MENU,ROUTES);
   const SUPPLIES = { basic: { name: '米粉青菜包', basket: { noodles: 8, greens: 8 } }, protein: { name: '鸡蛋牛肉包', basket: { egg: 4, beef: 4 } } };
   const EXTRA_LEDGER = { rewards: 0, aiCost: 0, shipping: 0, repairs: 0, delivered: 0, deliveryRevenue: 0, droneFlights: 0, aiAssignments: 0, late: 0, unfulfilled: 0, plainServed: 0, eggServed: 0, beefServed: 0, districtDelivered:0,districtRewards:0,commissionRewards:0,dineInServed:0, dineInRevenue:0, diningGuests:0, diningAbandoned:0, diningLate:0, tablesCleaned:0 };
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -47,7 +49,7 @@
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
-    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state); return state;
+    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state); return state;
   }
   function enableFuture(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -159,8 +161,9 @@
     s.readyDeliveries = []; s.remoteIn = 4; s.weather = s.day % 5 === 0 ? 'storm' : s.day % 3 === 0 ? 'gust' : 'clear';
     Sources.open(s);
     Commissions.open(s);
+    Events.open(s);
     if(s.town.reservation.day===s.day)for(const p of s.town.reservation.profiles||[])Relationships.begin(s,{...p,patience:30},true);
-    s.event = s.day > 1 && s.day % 3 !== 1 ? {
+    s.event = !s.townEvents && s.day > 1 && s.day % 3 !== 1 ? {
       kind: s.day % 3 === 2 ? 'rush' : 'influencer', title: s.day % 3 === 2 ? '午餐高峰' : '网红探店',
       description: s.day % 3 === 2 ? '附近公司午休啦，接下来顾客来得更快！' : '有人推荐了你的小店，口碑提升，顾客也更多了！', start: 25, end: 55
     } : null;
@@ -301,6 +304,7 @@
     Commissions.finish(s);const commissions=Commissions.report(s);if(commissions)s.lastReport.commissions=commissions;
     Relationships.finish(s);const relationships=Relationships.report(s);if(relationships)s.lastReport.relationships=relationships;
     Sources.finish(s);const sources=Sources.report(s);if(sources){s.lastReport.sources=sources;s.stats.lost=sources.rows.slice(0,5).reduce((n,r)=>n+r.lost,0);s.lastReport.lost=s.stats.lost;}
+    Events.finish(s);const townEvents=Events.report(s);if(townEvents)s.lastReport.townEvents=townEvents;
     s.history.push(clone(s.lastReport)); if (s.history.length > 30) s.history.shift();
     if(!Town.solvency(s).viable)Town.liquidate(s);
   }
@@ -368,10 +372,11 @@
       Town.arrivals(s,dt);
       District.arrivals(s);
       Commissions.arrivals(s);
+      Events.arrivals(s);
       if (s.arrivalIn <= 0) {
         arrive(s);
         const eventOn = s.event && s.elapsed >= s.event.start && s.elapsed < s.event.end;
-        s.arrivalIn = (3.15 + random(s) * 1.1) * (eventOn ? .68 : 1) * (Growth.ensure(s).decor.sign ? .9 : 1);
+        s.arrivalIn = (3.15 + random(s) * 1.1) * (eventOn ? .68 : 1) * Events.streetFactor(s) * (Growth.ensure(s).decor.sign ? .9 : 1);
       }
       if(s.future && s.drone.owned){s.remoteIn-=dt;if(s.remoteIn<=0){remoteArrive(s);s.remoteIn=11+random(s)*3;}}
       aiQueue(s);
@@ -407,6 +412,7 @@
     Relationships.nextDay(s);
     Commissions.nextDay(s);
     s.sourceLedger=Sources.create(s.day);
+    Events.nextDay(s);
     s.stats = ledger(s.cash); return ok(`第 ${s.day} 天，准备开店！`);
   }
   function buyRobot(s) {
@@ -456,6 +462,7 @@
       if(!Residents.valid(s))throw Error();
       if(!Relationships.valid(s))throw Error();
       if(!Commissions.valid(s))throw Error();
+      if(!Events.valid(s))throw Error();
       if (!int(s.day, 1, 1000000) || !number(s.cash, 0, 1e10) || !number(s.reputation, 0, 100) || typeof s.robot !== 'boolean' || !int(s.seed, 0, 4294967295)) throw Error();
       if (!s.inventory || Object.keys(INGREDIENTS).some(k => !int(s.inventory[k], 0, 1e7))) throw Error();
       if (!s.prices || Object.entries(MENU).some(([k, v]) => !int(s.prices[k], Math.ceil(v.base * .8), Math.floor(v.base * 1.2)))) throw Error();
@@ -469,6 +476,8 @@
       if (s.history.some(r => !validReport(r)) || (s.lastReport !== null && !validReport(s.lastReport)) || (s.phase === 'report' && !s.lastReport)) throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Relationships.validReport(r.relationships,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commissions.validReport(r.commissions,r.day)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Events.validReport(r.townEvents,r.day)||r.townEvents&&(r.townEvents.revenue>r.revenue||r.townEvents.served>r.served)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>{const e=r.townEvents;if(!e||e.kind==='quiet')return false;const source=r.sources?.rows?.find(x=>x.key===({rain:'residential',overtime:'tech',market:'park'}[e.kind]));return !source||e.requested>source.demand||e.served>source.served||e.revenue>source.revenue+.001||e.lost+e.missed>source.lost;}))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>{const c=r.commissions?.selected,reward=c?.rewardPaid?c.reward:0;return r.commissionRewards!==reward||r.rewards<reward||c&&c.revenue>r.revenue;}))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Sources.validReport(r.sources,r.totalServed??r.served,r.totalRevenue??r.revenue))||!Sources.valid(s))throw Error();
       // New dual-shop reports must agree with both stores' ledgers. Old reports retain their original shape.
@@ -482,5 +491,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Dining, District, Branch, Town, Residents, Sources, Relationships, Commissions, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Dining, District, Branch, Town, Residents, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });

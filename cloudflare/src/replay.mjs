@@ -1,5 +1,5 @@
 import Engine from '../../engine.js';
-export const RULE_VERSION = 'v044';
+export const RULE_VERSION = 'v045';
 export const TICK_SECONDS = .1;
 const actionNames = ['setPrice','purchase','setAIMode','setRobotMode','repairRobot','upgradeRobot','upgradeDrone','requestSupply','dispatchDrone','dispatchGround','openDay','closeDay','enqueue','nextDay','buyRobot'];
 const actions = Object.fromEntries(actionNames.map(k=>[k,Engine[k]]));
