@@ -11,6 +11,7 @@
   const Branch = typeof module === 'object' && module.exports ? require('./branch.js') : globalThis.NoodleBranch;
   const Town = typeof module === 'object' && module.exports ? require('./town-play.js') : globalThis.NoodleTownPlay;
   const Residents = typeof module === 'object' && module.exports ? require('./resident-life.js') : globalThis.NoodleResidents;
+  const Commerce = typeof module === 'object' && module.exports ? require('./town-commerce.js') : globalThis.NoodleCommerce;
   const Sources = typeof module === 'object' && module.exports ? require('./source-ledger.js') : globalThis.NoodleSources;
   const Relationships = typeof module === 'object' && module.exports ? require('./resident-relationships.js') : globalThis.NoodleRelationships;
   const Commissions = typeof module === 'object' && module.exports ? require('./resident-commissions.js') : globalThis.NoodleCommissions;
@@ -50,7 +51,7 @@
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
-    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state);state.roadmap=Roadmap.create(state);return state;
+    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.commerce=Commerce.create(state);state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state);state.roadmap=Roadmap.create(state);return state;
   }
   function enableFuture(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -302,6 +303,7 @@
     s.lastReport.totalRevenue = money(s.lastReport.revenue + (s.lastReport.branch?.revenue || 0));
     s.lastReport.totalServed = s.lastReport.served + (s.lastReport.branch?.served || 0);
     Town.settled(s);
+    Commerce.finish(s);const commerce=Commerce.report(s);if(commerce)s.lastReport.commerce=commerce;
     Commissions.finish(s);const commissions=Commissions.report(s);if(commissions)s.lastReport.commissions=commissions;
     Relationships.finish(s);const relationships=Relationships.report(s);if(relationships)s.lastReport.relationships=relationships;
     Sources.finish(s);const sources=Sources.report(s);if(sources){s.lastReport.sources=sources;s.stats.lost=sources.rows.slice(0,5).reduce((n,r)=>n+r.lost,0);s.lastReport.lost=s.stats.lost;}
@@ -360,6 +362,7 @@
       if (s.elapsed >= 90) closeDay(s);
     }
     if (!['open', 'closing'].includes(s.phase)) return;
+    Commerce.step(s,dt);
     Commissions.step(s);
     Branch.step(s,dt);
     transportStep(s,dt);
@@ -411,6 +414,7 @@
     Branch.nextDay(s);
     Town.nextDay(s);
     Residents.nextDay(s);
+    Commerce.nextDay(s);
     Relationships.nextDay(s);
     Commissions.nextDay(s);
     s.sourceLedger=Sources.create(s.day);
@@ -462,6 +466,7 @@
       if(!Branch.valid(s))throw Error();
       if(!Town.valid(s))throw Error();
       if(!Residents.valid(s))throw Error();
+      if(!Commerce.valid(s))throw Error();
       if(!Relationships.valid(s))throw Error();
       if(!Commissions.valid(s))throw Error();
       if(!Events.valid(s))throw Error();
@@ -478,6 +483,7 @@
       const validReport = r => r && int(r.day, 1, s.day) && Object.keys(ledger(0)).every(k => number(r[k], 0, 1e10)) && number(r.profit, -1e10, 1e10) && number(r.endCash, 0, 1e10) && number(r.cashFlow, -1e10, 1e10) && (r.branch == null || Branch.validReport(r.branch,r.day)) && (r.totalProfit === undefined || number(r.totalProfit,-1e10,1e10) && Math.abs(r.totalProfit-money(r.profit+(r.branch?.profit||0)))<.001) && (r.totalRevenue === undefined || number(r.totalRevenue,0,1e10) && Math.abs(r.totalRevenue-money(r.revenue+(r.branch?.revenue||0)))<.001) && (r.totalServed === undefined || int(r.totalServed,0,1e10) && r.totalServed===r.served+(r.branch?.served||0));
       if (s.history.some(r => !validReport(r)) || (s.lastReport !== null && !validReport(s.lastReport)) || (s.phase === 'report' && !s.lastReport)) throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Relationships.validReport(r.relationships,r.day)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commerce.validReport(r.commerce,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Roadmap.validReport(r.roadmap,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commissions.validReport(r.commissions,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Events.validReport(r.townEvents,r.day)||r.townEvents&&(r.townEvents.revenue>r.revenue||r.townEvents.served>r.served)))throw Error();
@@ -495,5 +501,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Roadmap, Dining, District, Branch, Town, Residents, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Roadmap, Dining, District, Branch, Town, Residents, Commerce, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });

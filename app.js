@@ -236,6 +236,7 @@
     $('modal-content').insertAdjacentHTML('beforeend',window.NoodleCommissionUI.report({E,state},r));
     $('modal-content').insertAdjacentHTML('beforeend',window.NoodleEventUI.report({E,state},r));
     $('modal-content').insertAdjacentHTML('beforeend',window.NoodleRoadmapUI.report(state,r));
+    $('modal-content').insertAdjacentHTML('beforeend',window.NoodleCommerceUI.report(r));
     $('modal-content').insertAdjacentHTML('beforeend', '<div class="report-line extra"><span>街区委托奖励（独立收入）</span><strong>+ ¥'+money(r.districtRewards||0)+'</strong></div>'+ (state.district.status==='completed'?'<button class="primary-button modal-full-button" data-action="district-claim">街区委托已完成 · 领取奖励</button>':''));
     $('modal-content').insertAdjacentHTML('beforeend', `<div class="report-line extra"><span>堂食送达 / 收入 / 清桌</span><strong>${r.dineInServed||0} 份 / ¥${r.dineInRevenue||0} / ${r.tablesCleaned||0} 次</strong></div>`);
     $('modal-content').insertAdjacentHTML('beforeend', '<div class="report-line extra"><span>今日全部奖励（含目标与委托）</span><strong>+ ¥' + money(state.stats.rewards || 0) + '</strong></div><div class="report-quests">' + Object.entries(E.Growth.TASKS).map(([k,t]) => '<button class="growth-button" data-action="claim-task" data-value="'+k+'" '+(state.growth.claimed[k] || E.Growth.progress(state,k)<t.target ? 'disabled' : '')+'>'+t.name+' · '+(state.growth.claimed[k]?'奖励已领取':E.Growth.progress(state,k)>=t.target?'领取 ¥'+t.cash+' + '+t.points+'研发点':'尚未达成')+'</button>').join('') + '</div>');

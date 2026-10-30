@@ -1,10 +1,10 @@
 import Engine from '../../engine.js';
-export const RULE_VERSION = 'v047';
+export const RULE_VERSION = 'v048';
 export const TICK_SECONDS = .1;
 const actionNames = ['setPrice','purchase','setAIMode','setRobotMode','repairRobot','upgradeRobot','upgradeDrone','requestSupply','dispatchDrone','dispatchGround','openDay','closeDay','enqueue','nextDay','buyRobot'];
 const actions = Object.fromEntries(actionNames.map(k=>[k,Engine[k]]));
 actions.setAuto=(s,value)=>{assert(typeof value==='boolean','invalid_action');s.drone.auto=value;};
-for (const [group,names] of Object.entries({Growth:['claim','research','decorate','special'],Roadmap:['claim','decorate'],District:['accept','clear','claim'],Branch:['establish','purchase','setEnabled','setMenu'],Dining:['seatParty','requestClean','setPolicy','toggle','upgradeServer'],Town:['activity','reserve','sellAssets']})) {
+for (const [group,names] of Object.entries({Growth:['claim','research','decorate','special'],Roadmap:['claim','decorate'],District:['accept','clear','claim'],Branch:['establish','purchase','setEnabled','setMenu'],Dining:['seatParty','requestClean','setPolicy','toggle','upgradeServer'],Town:['activity','reserve','sellAssets'],Commerce:['chat']})) {
   for(const name of names) actions[`${group}.${name}`]=(s,...args)=>Engine[group][name](s,...args);
 }
 actions['Town.liquidate']=s=>{assert(!Engine.Town.solvency(s).viable,'still_solvent');return Engine.Town.liquidate(s);};

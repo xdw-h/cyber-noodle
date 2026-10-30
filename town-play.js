@@ -20,7 +20,7 @@
     const r=ensure(s).reservation;if(r.day!==s.day||!r.profiles)return false;
     if(s.elapsed>78){for(const p of r.profiles)if(p.status==='pending'){p.status='missed';p.reason='晚餐窗口已结束';r.remaining--;Sources.lost(s,p,'window');Relationships.fail(s,p,'reservation');}return false;}
     const i=r.profiles.findIndex(p=>p.status==='pending');if(i<0||s.elapsed<66+i*4||s.orders.length>=5)return false;
-    const p=r.profiles[i],person=Residents.PEOPLE[p.residentId];r.remaining--;r.arrived++;
+    const p=r.profiles[i],person=Residents.describe(s,p.residentId);r.remaining--;r.arrived++;
     if(s.residentLife&&!s.residentLife.attempted.includes(p.residentId))s.residentLife.attempted.push(p.residentId);
     const price=s.prices[p.type]+Growth.specialBonus(s,p.type);
     if(price>p.budget){p.status='rejected';p.reason='售价超过预算';Sources.lost(s,p,'price');Relationships.fail(s,p,'price');s.stats.lost++;return true;}
