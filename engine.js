@@ -11,6 +11,7 @@
   const Town = typeof module === 'object' && module.exports ? require('./town-play.js') : globalThis.NoodleTownPlay;
   const Residents = typeof module === 'object' && module.exports ? require('./resident-life.js') : globalThis.NoodleResidents;
   const Sources = typeof module === 'object' && module.exports ? require('./source-ledger.js') : globalThis.NoodleSources;
+  const Relationships = typeof module === 'object' && module.exports ? require('./resident-relationships.js') : globalThis.NoodleRelationships;
   const INGREDIENTS = {
     noodles: { name: '鲜米粉', price: 2, perishable: false, color: '#e9c785' },
     greens: { name: '时令青菜', price: 1, perishable: true, color: '#78a87c' },
@@ -45,7 +46,7 @@
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
-    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();Town.ensure(state); return state;
+    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state); return state;
   }
   function enableFuture(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -156,6 +157,7 @@
       s.orders = []; s.current = null; s.arrivalIn = 1.2; s.closingElapsed = 0;
     s.readyDeliveries = []; s.remoteIn = 4; s.weather = s.day % 5 === 0 ? 'storm' : s.day % 3 === 0 ? 'gust' : 'clear';
     Sources.open(s);
+    if(s.town.reservation.day===s.day)for(const p of s.town.reservation.profiles||[])Relationships.begin(s,{...p,patience:30},true);
     s.event = s.day > 1 && s.day % 3 !== 1 ? {
       kind: s.day % 3 === 2 ? 'rush' : 'influencer', title: s.day % 3 === 2 ? '午餐高峰' : '网红探店',
       description: s.day % 3 === 2 ? '附近公司午休啦，接下来顾客来得更快！' : '有人推荐了你的小店，口碑提升，顾客也更多了！', start: 25, end: 55
@@ -202,7 +204,7 @@
     s.cash = money(s.cash + price); s.stats.revenue = money(s.stats.revenue + price);
     s.stats.served++; s.totalServed++; s.stats[`${order.type}Served`]++;
     Town.served(s,order,remote);
-    if(!remote)Residents.served(s,order);
+    if(!remote){Residents.served(s,order);Relationships.paid(s,order,price);}
     if (remote) { s.stats.delivered++; s.totalDelivered++; s.stats.deliveryRevenue = money(s.stats.deliveryRevenue+price); }
     if(order.channel==='dinein'){s.stats.dineInServed++;s.stats.dineInRevenue=money(s.stats.dineInRevenue+price);if(order.serviceDiscount<1)s.reputation=Math.max(0,money(s.reputation-.8));}
     s.reputation = Math.min(100, money(s.reputation + .25));
@@ -293,13 +295,14 @@
     s.lastReport.totalRevenue = money(s.lastReport.revenue + (s.lastReport.branch?.revenue || 0));
     s.lastReport.totalServed = s.lastReport.served + (s.lastReport.branch?.served || 0);
     Town.settled(s);
+    Relationships.finish(s);const relationships=Relationships.report(s);if(relationships)s.lastReport.relationships=relationships;
     Sources.finish(s);const sources=Sources.report(s);if(sources){s.lastReport.sources=sources;s.stats.lost=sources.rows.slice(0,5).reduce((n,r)=>n+r.lost,0);s.lastReport.lost=s.stats.lost;}
     s.history.push(clone(s.lastReport)); if (s.history.length > 30) s.history.shift();
     if(!Town.solvency(s).viable)Town.liquidate(s);
   }
   function closeDay(s) {
     if (!['open', 'closing'].includes(s.phase)) return no('今天尚未开始营业，或已经结算。');
-    s.phase = 'closing'; s.paused = false;for(const o of s.orders)Sources.lost(s,o,'closed');Dining.close(s); Branch.close(s); s.orders = [];
+    s.phase = 'closing'; s.paused = false;for(const o of s.orders){Sources.lost(s,o,'closed');Relationships.fail(s,o,'closed');}Dining.close(s); Branch.close(s); s.orders = [];
     autoDispatch(s,true);
     if (!s.current && !s.drone.mission && !s.readyDeliveries.length && !Dining.hasWork(s) && !Branch.hasWork(s)) settle(s);
     return ok('正在完成锅里这一份，随后收摊结算。');
@@ -309,9 +312,10 @@
     if(s.future){
       const profile=Growth.CUSTOMERS[Math.floor(random(s)*4)],resident=s.sequence%2===0?Residents.choose(s):null,type=resident?resident.type:random(s)<.75?profile.type:Object.keys(MENU)[Math.floor(random(s)*3)];
       const markup=s.prices[type]/MENU[type].base-1;
-      if(random(s)>Math.max(.45,1-markup*1.8)){Sources.reject(s,resident?Sources.classify({residentId:resident.id}):'street','price');return;}
+      const priceRejected=random(s)>Math.max(.45,1-markup*1.8);
+      if(priceRejected&&!resident){Sources.reject(s,'street','price');return;}
       const offer={id:++s.sequence,type,status:'waiting',age:0,patience:profile.patience+(Growth.ensure(s).decor.bench?5:0),price:s.prices[type],person:Growth.CUSTOMERS.indexOf(profile),customer:profile.name,text:profile.line,preferenceMatch:type===profile.type,tags:[profile.name,type===profile.type?'偏好餐品':'换个口味']};
-      if(resident){if(s.prices[type]>resident.budget){Sources.reject(s,Sources.classify({residentId:resident.id}),'price');return;}Object.assign(offer,{residentId:resident.id,customer:resident.name,person:resident.id%4,patience:resident.patience,text:resident.role+' · '+resident.purpose,tags:[resident.role,'小镇居民'],preferenceMatch:true});}
+      if(resident){const total=s.prices[type]+(Growth.ensure(s).special===type?1:0)+(s.aiMode!=='manual'?Growth.ensure(s).research.ai:0);if(total>resident.budget){Sources.reject(s,Sources.classify({residentId:resident.id}),'price');Relationships.fail(s,{residentId:resident.id,type},'price');return;}Object.assign(offer,{residentId:resident.id,customer:resident.name,person:resident.id%4,patience:resident.patience,text:resident.role+' · '+resident.purpose,tags:[resident.role,'小镇居民'],preferenceMatch:true});Relationships.begin(s,offer);}
       if(Dining.ensure(s).enabled&&offer.id%4!==1)Dining.arrive(s,offer,resident?'solo':undefined);else{Sources.track(s,offer);s.orders.push({...offer,channel:'takeout'});}
       return;
     }
@@ -351,7 +355,7 @@
     if (s.phase === 'open') {
       s.orders.forEach(o => { o.age += dt; });
       const lost = s.orders.filter(o => o.age >= o.patience).length;
-      s.orders.filter(o=>o.age>=o.patience).forEach(o=>Sources.lost(s,o,'timeout'));
+      s.orders.filter(o=>o.age>=o.patience).forEach(o=>{Sources.lost(s,o,'timeout');Relationships.fail(s,o,'timeout');});
       s.orders.filter(o=>o.age>=o.patience&&o.channel==='dinein').forEach(o=>Dining.cancelOrder(s,o.id));
       s.orders = s.orders.filter(o => o.age < o.patience);
       if (lost) { s.stats.lost += lost; s.reputation = Math.max(0, money(s.reputation - lost * 1.2)); }
@@ -394,6 +398,7 @@
     Branch.nextDay(s);
     Town.nextDay(s);
     Residents.nextDay(s);
+    Relationships.nextDay(s);
     s.sourceLedger=Sources.create(s.day);
     s.stats = ledger(s.cash); return ok(`第 ${s.day} 天，准备开店！`);
   }
@@ -442,6 +447,7 @@
       if(!Branch.valid(s))throw Error();
       if(!Town.valid(s))throw Error();
       if(!Residents.valid(s))throw Error();
+      if(!Relationships.valid(s))throw Error();
       if (!int(s.day, 1, 1000000) || !number(s.cash, 0, 1e10) || !number(s.reputation, 0, 100) || typeof s.robot !== 'boolean' || !int(s.seed, 0, 4294967295)) throw Error();
       if (!s.inventory || Object.keys(INGREDIENTS).some(k => !int(s.inventory[k], 0, 1e7))) throw Error();
       if (!s.prices || Object.entries(MENU).some(([k, v]) => !int(s.prices[k], Math.ceil(v.base * .8), Math.floor(v.base * 1.2)))) throw Error();
@@ -453,6 +459,7 @@
       if(!Array.isArray(s.aiLog)||s.aiLog.length>5||s.aiLog.some(v=>typeof v!=='string'||v.length>300)||!['clear','gust','storm'].includes(s.weather))throw Error();
       const validReport = r => r && int(r.day, 1, s.day) && Object.keys(ledger(0)).every(k => number(r[k], 0, 1e10)) && number(r.profit, -1e10, 1e10) && number(r.endCash, 0, 1e10) && number(r.cashFlow, -1e10, 1e10) && (r.branch == null || Branch.validReport(r.branch,r.day)) && (r.totalProfit === undefined || number(r.totalProfit,-1e10,1e10) && Math.abs(r.totalProfit-money(r.profit+(r.branch?.profit||0)))<.001) && (r.totalRevenue === undefined || number(r.totalRevenue,0,1e10) && Math.abs(r.totalRevenue-money(r.revenue+(r.branch?.revenue||0)))<.001) && (r.totalServed === undefined || int(r.totalServed,0,1e10) && r.totalServed===r.served+(r.branch?.served||0));
       if (s.history.some(r => !validReport(r)) || (s.lastReport !== null && !validReport(s.lastReport)) || (s.phase === 'report' && !s.lastReport)) throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Relationships.validReport(r.relationships,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Sources.validReport(r.sources,r.totalServed??r.served,r.totalRevenue??r.revenue))||!Sources.valid(s))throw Error();
       // New dual-shop reports must agree with both stores' ledgers. Old reports retain their original shape.
       const newReports=s.history.concat(s.lastReport?[s.lastReport]:[]).filter(r=>r.totalProfit!==undefined);
@@ -465,5 +472,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Dining, District, Branch, Town, Residents, Sources, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Dining, District, Branch, Town, Residents, Sources, Relationships, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });
