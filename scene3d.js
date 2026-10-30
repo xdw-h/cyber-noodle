@@ -4,7 +4,7 @@ import {RoomEnvironment} from './vendor/addons/environments/RoomEnvironment.js?v
 import {M,group,box,cyl,sphere,label,link,planter,batch} from './model-kit.js?v=055';
 import {speechLabel} from './speech-bubble.js?v=055';
 import {buildArchitecture,buildKitchen,buildCounter,buildRobot,buildStove,buildTerminal,buildPerson,buildDrone,buildHelipad,buildGarden,buildTree,buildDecor} from './shop-models.js?v=055';
-import {buildDistrict,PLACES,DESTINATIONS} from './district-models.js?v=055';
+import {buildDistrict,PLACES,DESTINATIONS} from './district-models.js?v=059';
 import {buildGuest,poseGuest} from './guest-models.js?v=055';
 import {streetHouseholdTarget,poseStreetHousehold} from './household-models.js?v=055';
 import {buildService,poseService} from './service-models.js?v=055';
