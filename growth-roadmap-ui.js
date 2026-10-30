@@ -16,7 +16,7 @@
   }
   function stageCard(s,stage,index){
     const state=stage.claimed?'已领取':stage.locked?'后续阶段':stage.ready?'可以领取':'当前目标';
-    return `<article class="roadmap-stage ${stage.claimed?'is-claimed':stage.locked?'is-locked':'is-current'}"><div class="roadmap-step" aria-hidden="true">${stage.claimed?'✓':String(index+1).padStart(2,'0')}</div><div class="roadmap-stage-body"><header><h4>${esc(stage.name)}</h4><span>${state}</span></header><p>${esc(stage.copy)}</p>${conditions(stage)}<p class="roadmap-reward">解锁 · ${esc(stage.reward)}</p>${stage.claimed?'<small class="roadmap-stage-status">奖励已永久保存</small>':stage.locked?'<small class="roadmap-stage-status">先完成前一阶段；真实经营成绩可以提前积累。</small>':button('roadmap-claim',stage.ready?'领取阶段奖励':'继续经营，日结后查看',stage.key,!stage.ready||!canClaim(s))}</div></article>`;
+    return `<article class="roadmap-stage ${stage.claimed?'is-claimed':stage.locked?'is-locked':'is-current'}"><div class="roadmap-stage-badge" aria-hidden="true">${stage.claimed?'<svg viewBox="0 0 20 20" focusable="false"><path d="M5 10l3.2 3.2L15 6"/></svg>':`<span>${String(index+1).padStart(2,'0')}</span>`}</div><div class="roadmap-stage-body"><header><h4>${esc(stage.name)}</h4><span>${state}</span></header><p>${esc(stage.copy)}</p>${conditions(stage)}<p class="roadmap-reward">解锁 · ${esc(stage.reward)}</p>${stage.claimed?'<small class="roadmap-stage-status">奖励已永久保存</small>':stage.locked?'<small class="roadmap-stage-status">先完成前一阶段；真实经营成绩可以提前积累。</small>':button('roadmap-claim',stage.ready?'领取阶段奖励':'继续经营，日结后查看',stage.key,!stage.ready||!canClaim(s))}</div></article>`;
   }
   function vouchers(s,view){
     const available=Object.entries(G.DECOR).filter(([key])=>!s.growth.decor[key]);
