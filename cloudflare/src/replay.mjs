@@ -1,5 +1,5 @@
 import Engine from '../../engine.js';
-export const RULE_VERSION = 'v043';
+export const RULE_VERSION = 'v044';
 export const TICK_SECONDS = .1;
 const actionNames = ['setPrice','purchase','setAIMode','setRobotMode','repairRobot','upgradeRobot','upgradeDrone','requestSupply','dispatchDrone','dispatchGround','openDay','closeDay','enqueue','nextDay','buyRobot'];
 const actions = Object.fromEntries(actionNames.map(k=>[k,Engine[k]]));
@@ -8,6 +8,7 @@ for (const [group,names] of Object.entries({Growth:['claim','research','decorate
   for(const name of names) actions[`${group}.${name}`]=(s,...args)=>Engine[group][name](s,...args);
 }
 actions['Town.liquidate']=s=>{assert(!Engine.Town.solvency(s).viable,'still_solvent');return Engine.Town.liquidate(s);};
+for(const name of ['accept','cancel'])actions['Commissions.'+name]=(s,...args)=>Engine.Commissions[name](s,...args);
 export const ACTIONS = Object.freeze(Object.keys(actions));
 export const initialState = seed => Engine.createFutureState(seed);
 function assert(ok,message){if(!ok)throw new Error(message);}

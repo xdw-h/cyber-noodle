@@ -12,6 +12,7 @@
   const Residents = typeof module === 'object' && module.exports ? require('./resident-life.js') : globalThis.NoodleResidents;
   const Sources = typeof module === 'object' && module.exports ? require('./source-ledger.js') : globalThis.NoodleSources;
   const Relationships = typeof module === 'object' && module.exports ? require('./resident-relationships.js') : globalThis.NoodleRelationships;
+  const Commissions = typeof module === 'object' && module.exports ? require('./resident-commissions.js') : globalThis.NoodleCommissions;
   const INGREDIENTS = {
     noodles: { name: '鲜米粉', price: 2, perishable: false, color: '#e9c785' },
     greens: { name: '时令青菜', price: 1, perishable: true, color: '#78a87c' },
@@ -30,7 +31,7 @@
   };
   Branch.configure(INGREDIENTS, MENU);
   const SUPPLIES = { basic: { name: '米粉青菜包', basket: { noodles: 8, greens: 8 } }, protein: { name: '鸡蛋牛肉包', basket: { egg: 4, beef: 4 } } };
-  const EXTRA_LEDGER = { rewards: 0, aiCost: 0, shipping: 0, repairs: 0, delivered: 0, deliveryRevenue: 0, droneFlights: 0, aiAssignments: 0, late: 0, unfulfilled: 0, plainServed: 0, eggServed: 0, beefServed: 0, districtDelivered:0,districtRewards:0,dineInServed:0, dineInRevenue:0, diningGuests:0, diningAbandoned:0, diningLate:0, tablesCleaned:0 };
+  const EXTRA_LEDGER = { rewards: 0, aiCost: 0, shipping: 0, repairs: 0, delivered: 0, deliveryRevenue: 0, droneFlights: 0, aiAssignments: 0, late: 0, unfulfilled: 0, plainServed: 0, eggServed: 0, beefServed: 0, districtDelivered:0,districtRewards:0,commissionRewards:0,dineInServed:0, dineInRevenue:0, diningGuests:0, diningAbandoned:0, diningLate:0, tablesCleaned:0 };
   const clone = value => JSON.parse(JSON.stringify(value));
   const ok = (message) => ({ ok: true, message: message || '' });
   const no = message => ({ ok: false, message });
@@ -46,7 +47,7 @@
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
-    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state); return state;
+    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state); return state;
   }
   function enableFuture(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -157,6 +158,7 @@
       s.orders = []; s.current = null; s.arrivalIn = 1.2; s.closingElapsed = 0;
     s.readyDeliveries = []; s.remoteIn = 4; s.weather = s.day % 5 === 0 ? 'storm' : s.day % 3 === 0 ? 'gust' : 'clear';
     Sources.open(s);
+    Commissions.open(s);
     if(s.town.reservation.day===s.day)for(const p of s.town.reservation.profiles||[])Relationships.begin(s,{...p,patience:30},true);
     s.event = s.day > 1 && s.day % 3 !== 1 ? {
       kind: s.day % 3 === 2 ? 'rush' : 'influencer', title: s.day % 3 === 2 ? '午餐高峰' : '网红探店',
@@ -196,8 +198,8 @@
   function collect(s, order, remote) {
     let price = order.price || s.prices[order.type];
     const growth = Growth.ensure(s);
-    if(s.future && growth.special === order.type) price += 1;
-    if(s.future && order.preferenceMatch && s.aiMode!=='manual') price += growth.research.ai;
+    if(!order.lockedPrice && s.future && growth.special === order.type) price += 1;
+    if(!order.lockedPrice && s.future && order.preferenceMatch && s.aiMode!=='manual') price += growth.research.ai;
     if(order.channel==='dinein')price=money(price*(order.serviceDiscount||1));
     if (remote && s.elapsed + (s.closingElapsed || 0) - (order.createdAt || 0) > (order.deadline || 42) + (growth.decor.warmer ? 8 : 0)) { price = money(price * .8); s.stats.late++; s.reputation = Math.max(0,s.reputation-1); }
     if(!Sources.paid(s,order,price))return;
@@ -205,6 +207,7 @@
     s.stats.served++; s.totalServed++; s.stats[`${order.type}Served`]++;
     Town.served(s,order,remote);
     if(!remote){Residents.served(s,order);Relationships.paid(s,order,price);}
+    Commissions.paid(s,order,price);
     if (remote) { s.stats.delivered++; s.totalDelivered++; s.stats.deliveryRevenue = money(s.stats.deliveryRevenue+price); }
     if(order.channel==='dinein'){s.stats.dineInServed++;s.stats.dineInRevenue=money(s.stats.dineInRevenue+price);if(order.serviceDiscount<1)s.reputation=Math.max(0,money(s.reputation-.8));}
     s.reputation = Math.min(100, money(s.reputation + .25));
@@ -295,6 +298,7 @@
     s.lastReport.totalRevenue = money(s.lastReport.revenue + (s.lastReport.branch?.revenue || 0));
     s.lastReport.totalServed = s.lastReport.served + (s.lastReport.branch?.served || 0);
     Town.settled(s);
+    Commissions.finish(s);const commissions=Commissions.report(s);if(commissions)s.lastReport.commissions=commissions;
     Relationships.finish(s);const relationships=Relationships.report(s);if(relationships)s.lastReport.relationships=relationships;
     Sources.finish(s);const sources=Sources.report(s);if(sources){s.lastReport.sources=sources;s.stats.lost=sources.rows.slice(0,5).reduce((n,r)=>n+r.lost,0);s.lastReport.lost=s.stats.lost;}
     s.history.push(clone(s.lastReport)); if (s.history.length > 30) s.history.shift();
@@ -302,7 +306,7 @@
   }
   function closeDay(s) {
     if (!['open', 'closing'].includes(s.phase)) return no('今天尚未开始营业，或已经结算。');
-    s.phase = 'closing'; s.paused = false;for(const o of s.orders){Sources.lost(s,o,'closed');Relationships.fail(s,o,'closed');}Dining.close(s); Branch.close(s); s.orders = [];
+    s.phase = 'closing'; s.paused = false;for(const o of s.orders){Sources.lost(s,o,'closed');Relationships.fail(s,o,'closed');Commissions.lost(s,o);}Dining.close(s); Branch.close(s); s.orders = [];
     autoDispatch(s,true);
     if (!s.current && !s.drone.mission && !s.readyDeliveries.length && !Dining.hasWork(s) && !Branch.hasWork(s)) settle(s);
     return ok('正在完成锅里这一份，随后收摊结算。');
@@ -350,18 +354,20 @@
       if (s.elapsed >= 90) closeDay(s);
     }
     if (!['open', 'closing'].includes(s.phase)) return;
+    Commissions.step(s);
     Branch.step(s,dt);
     transportStep(s,dt);
     if (s.phase === 'open') {
       s.orders.forEach(o => { o.age += dt; });
       const lost = s.orders.filter(o => o.age >= o.patience).length;
-      s.orders.filter(o=>o.age>=o.patience).forEach(o=>{Sources.lost(s,o,'timeout');Relationships.fail(s,o,'timeout');});
+      s.orders.filter(o=>o.age>=o.patience).forEach(o=>{Sources.lost(s,o,'timeout');Relationships.fail(s,o,'timeout');Commissions.lost(s,o);});
       s.orders.filter(o=>o.age>=o.patience&&o.channel==='dinein').forEach(o=>Dining.cancelOrder(s,o.id));
       s.orders = s.orders.filter(o => o.age < o.patience);
       if (lost) { s.stats.lost += lost; s.reputation = Math.max(0, money(s.reputation - lost * 1.2)); }
       s.arrivalIn -= dt;
       Town.arrivals(s,dt);
       District.arrivals(s);
+      Commissions.arrivals(s);
       if (s.arrivalIn <= 0) {
         arrive(s);
         const eventOn = s.event && s.elapsed >= s.event.start && s.elapsed < s.event.end;
@@ -399,6 +405,7 @@
     Town.nextDay(s);
     Residents.nextDay(s);
     Relationships.nextDay(s);
+    Commissions.nextDay(s);
     s.sourceLedger=Sources.create(s.day);
     s.stats = ledger(s.cash); return ok(`第 ${s.day} 天，准备开店！`);
   }
@@ -448,6 +455,7 @@
       if(!Town.valid(s))throw Error();
       if(!Residents.valid(s))throw Error();
       if(!Relationships.valid(s))throw Error();
+      if(!Commissions.valid(s))throw Error();
       if (!int(s.day, 1, 1000000) || !number(s.cash, 0, 1e10) || !number(s.reputation, 0, 100) || typeof s.robot !== 'boolean' || !int(s.seed, 0, 4294967295)) throw Error();
       if (!s.inventory || Object.keys(INGREDIENTS).some(k => !int(s.inventory[k], 0, 1e7))) throw Error();
       if (!s.prices || Object.entries(MENU).some(([k, v]) => !int(s.prices[k], Math.ceil(v.base * .8), Math.floor(v.base * 1.2)))) throw Error();
@@ -460,6 +468,8 @@
       const validReport = r => r && int(r.day, 1, s.day) && Object.keys(ledger(0)).every(k => number(r[k], 0, 1e10)) && number(r.profit, -1e10, 1e10) && number(r.endCash, 0, 1e10) && number(r.cashFlow, -1e10, 1e10) && (r.branch == null || Branch.validReport(r.branch,r.day)) && (r.totalProfit === undefined || number(r.totalProfit,-1e10,1e10) && Math.abs(r.totalProfit-money(r.profit+(r.branch?.profit||0)))<.001) && (r.totalRevenue === undefined || number(r.totalRevenue,0,1e10) && Math.abs(r.totalRevenue-money(r.revenue+(r.branch?.revenue||0)))<.001) && (r.totalServed === undefined || int(r.totalServed,0,1e10) && r.totalServed===r.served+(r.branch?.served||0));
       if (s.history.some(r => !validReport(r)) || (s.lastReport !== null && !validReport(s.lastReport)) || (s.phase === 'report' && !s.lastReport)) throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Relationships.validReport(r.relationships,r.day)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commissions.validReport(r.commissions,r.day)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>{const c=r.commissions?.selected,reward=c?.rewardPaid?c.reward:0;return r.commissionRewards!==reward||r.rewards<reward||c&&c.revenue>r.revenue;}))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Sources.validReport(r.sources,r.totalServed??r.served,r.totalRevenue??r.revenue))||!Sources.valid(s))throw Error();
       // New dual-shop reports must agree with both stores' ledgers. Old reports retain their original shape.
       const newReports=s.history.concat(s.lastReport?[s.lastReport]:[]).filter(r=>r.totalProfit!==undefined);
@@ -472,5 +482,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Dining, District, Branch, Town, Residents, Sources, Relationships, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Dining, District, Branch, Town, Residents, Sources, Relationships, Commissions, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });

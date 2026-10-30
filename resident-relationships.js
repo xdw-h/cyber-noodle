@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.NoodleRelationships=api;})(globalThis,function(){
   'use strict';
   const TYPES=['plain','egg','beef'];
-  const REASONS={timely:'及时吃到热餐',late:'等餐较久',price:'售价超过预算',queue:'接待队列已满',seating:'等位超时',timeout:'等餐超时',shortage:'曾遇缺货，未完成服务',closed:'收摊取消',reservation:'预约窗口失约'};
+  const REASONS={commission:'居民委托未完成',timely:'及时吃到热餐',late:'等餐较久',price:'售价超过预算',queue:'接待队列已满',seating:'等位超时',timeout:'等餐超时',shortage:'曾遇缺货，未完成服务',closed:'收摊取消',reservation:'预约窗口失约'};
   const round=n=>Math.round(n*100)/100,clone=v=>JSON.parse(JSON.stringify(v));
   const known=id=>Number.isInteger(id)&&id>=0&&id<18;
   const stamp=s=>(s.elapsed||0)+(s.closingElapsed||0);
