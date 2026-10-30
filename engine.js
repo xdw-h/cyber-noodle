@@ -12,6 +12,7 @@
   const Town = typeof module === 'object' && module.exports ? require('./town-play.js') : globalThis.NoodleTownPlay;
   const Residents = typeof module === 'object' && module.exports ? require('./resident-life.js') : globalThis.NoodleResidents;
   const Commerce = typeof module === 'object' && module.exports ? require('./town-commerce.js') : globalThis.NoodleCommerce;
+  const Greetings = typeof module === 'object' && module.exports ? require('./resident-greetings.js') : globalThis.NoodleGreetings;
   const Sources = typeof module === 'object' && module.exports ? require('./source-ledger.js') : globalThis.NoodleSources;
   const Relationships = typeof module === 'object' && module.exports ? require('./resident-relationships.js') : globalThis.NoodleRelationships;
   const Commissions = typeof module === 'object' && module.exports ? require('./resident-commissions.js') : globalThis.NoodleCommissions;
@@ -51,7 +52,7 @@
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
-    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.commerce=Commerce.create(state);state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state);state.roadmap=Roadmap.create(state);return state;
+    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.commerce=Commerce.create(state);state.greetings=Greetings.create(state);state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state);state.roadmap=Roadmap.create(state);return state;
   }
   function enableFuture(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -304,6 +305,7 @@
     s.lastReport.totalServed = s.lastReport.served + (s.lastReport.branch?.served || 0);
     Town.settled(s);
     Commerce.finish(s);const commerce=Commerce.report(s);if(commerce)s.lastReport.commerce=commerce;
+    Greetings.finish(s);const greetings=Greetings.report(s);if(greetings)s.lastReport.greetings=greetings;
     Commissions.finish(s);const commissions=Commissions.report(s);if(commissions)s.lastReport.commissions=commissions;
     Relationships.finish(s);const relationships=Relationships.report(s);if(relationships)s.lastReport.relationships=relationships;
     Sources.finish(s);const sources=Sources.report(s);if(sources){s.lastReport.sources=sources;s.stats.lost=sources.rows.slice(0,5).reduce((n,r)=>n+r.lost,0);s.lastReport.lost=s.stats.lost;}
@@ -362,7 +364,7 @@
       if (s.elapsed >= 90) closeDay(s);
     }
     if (!['open', 'closing'].includes(s.phase)) return;
-    Commerce.step(s,dt);
+    Greetings.step(s,dt);Commerce.step(s,dt);
     Commissions.step(s);
     Branch.step(s,dt);
     transportStep(s,dt);
@@ -415,6 +417,7 @@
     Town.nextDay(s);
     Residents.nextDay(s);
     Commerce.nextDay(s);
+    Greetings.nextDay(s);
     Relationships.nextDay(s);
     Commissions.nextDay(s);
     s.sourceLedger=Sources.create(s.day);
@@ -467,6 +470,7 @@
       if(!Town.valid(s))throw Error();
       if(!Residents.valid(s))throw Error();
       if(!Commerce.valid(s))throw Error();
+      if(!Greetings.valid(s))throw Error();
       if(!Relationships.valid(s))throw Error();
       if(!Commissions.valid(s))throw Error();
       if(!Events.valid(s))throw Error();
@@ -484,6 +488,7 @@
       if (s.history.some(r => !validReport(r)) || (s.lastReport !== null && !validReport(s.lastReport)) || (s.phase === 'report' && !s.lastReport)) throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Relationships.validReport(r.relationships,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commerce.validReport(r.commerce,r.day)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Greetings.validReport(r.greetings,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Roadmap.validReport(r.roadmap,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commissions.validReport(r.commissions,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Events.validReport(r.townEvents,r.day)||r.townEvents&&(r.townEvents.revenue>r.revenue||r.townEvents.served>r.served)))throw Error();
@@ -501,5 +506,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Roadmap, Dining, District, Branch, Town, Residents, Commerce, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Roadmap, Dining, District, Branch, Town, Residents, Commerce, Greetings, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });
