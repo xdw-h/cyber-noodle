@@ -1,4 +1,4 @@
-import {M,group,box,cyl,sphere,bowl,link,label,batch} from './model-kit.js';
+import {M,group,box,cyl,sphere,bowl,link,label,batch} from './model-kit.js?v=055';
 export function buildService(world,seats){
   for(let i=0;i<4;i++){const s=seats[i*2],plaque=group(world,'堂食桌号 '+(i+1),s.tableX,1.055,s.z-.29);const sign=label(plaque,String(i+1).padStart(2,'0'),.27,.17,0,0,0,{color:'#476e58',bg:'#fff5d9'});sign.rotation.x=-Math.PI/2;batch(plaque);}
   const root=group(world,'小满 · 送餐清桌机器人');root.userData={action:'dining',title:'小满 · 送餐与清桌'};

@@ -1,5 +1,5 @@
-import {M,group,box,cyl,label,bowl,batch} from './model-kit.js';
-import {buildRobot,buildStove} from './shop-models.js';
+import {M,group,box,cyl,label,bowl,batch} from './model-kit.js?v=055';
+import {buildRobot,buildStove} from './shop-models.js?v=055';
 
 // Frontage clear of district buildings, delivery pads and their approach paths.
 export const BRANCH_SITES={

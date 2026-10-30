@@ -1,12 +1,13 @@
-import {M,group,box,cyl,sphere,link,label,torus,batch,colorMat} from './model-kit.js';
+import {M,group,box,cyl,sphere,link,label,torus,batch,colorMat} from './model-kit.js?v=055';
+import {characterStyle,detailTorso,detailHair} from './character-details.js?v=055';
 
 function person(world,name,color){
-  const root=group(world,name),shirt=colorMat(color),body=group(root,'上身',0,.82,0);
-  box(body,.39,.5,.28,0,.23,0,shirt,.09);box(body,.24,.3,.04,0,.2,.16,M.canvas,.02);batch(body);
-  const head=group(root,'面孔',0,1.52,0);sphere(head,.22,0,0,0,M.skin,[.95,1.03,.9]);sphere(head,.225,0,.09,-.025,M.hair,[1,.72,.9]);for(const x of [-.075,.075])sphere(head,.017,x,-.02,.2,M.hair);link(head,[-.035,-.1,.18],[.035,-.1,.18],.006,M.hair);batch(head);
+  const appearance=characterStyle([...name].reduce((n,c)=>n+c.charCodeAt(0),0)),root=group(world,name),shirt=colorMat(color),body=group(root,'上身',0,.82,0);
+  box(body,appearance.width,.5,.28,0,.23,0,shirt,.07);detailTorso(body,appearance);batch(body);
+  const head=group(root,'面孔',0,1.52,0);sphere(head,.22,0,0,0,M.skin,[.95,1.03,.9]);detailHair(head,appearance);for(const x of [-.075,.075])sphere(head,.017,x,-.02,.2,M.hair);link(head,[-.035,-.1,.18],[.035,-.1,.18],.006,M.hair);batch(head);
   const arms=[],legs=[];for(const side of [-1,1]){const arm=group(root,'签收手臂',side*.245,1.24,0);link(arm,[0,0,0],[side*.025,-.3,.02],.06,shirt);sphere(arm,.06,side*.025,-.32,.02,M.skin);batch(arm);arms.push(arm);
-    const hip=group(root,'大腿',side*.115,.85,0);link(hip,[0,0,0],[0,-.33,0],.075,M.pants);batch(hip);const knee=group(hip,'膝盖',0,-.33,0);link(knee,[0,0,0],[0,-.32,0],.065,M.pants);batch(knee);const ankle=group(knee,'脚掌',0,-.32,0);box(ankle,.17,.09,.27,0,0,.08,M.iron,.04);batch(ankle);const pose=globalThis.NoodleMotion.leg(0,.61);hip.rotation.x=pose.hip;knee.rotation.x=pose.knee;ankle.rotation.x=pose.ankle;legs.push({hip,knee,ankle});}
-  return {root,body,head,arms,legs};
+    const hip=group(root,'大腿',side*.115,.85,0);link(hip,[0,0,0],[0,-.33,0],.075,M.pants);batch(hip);const knee=group(hip,'膝盖',0,-.33,0);link(knee,[0,0,0],[0,-.32,0],.065,M.pants);batch(knee);const ankle=group(knee,'脚掌',0,-.32,0);box(ankle,.17,.09,.27,0,0,.08,M.rubber,.025);batch(ankle);const pose=globalThis.NoodleMotion.leg(0,.61);hip.rotation.x=pose.hip;knee.rotation.x=pose.knee;ankle.rotation.x=pose.ankle;legs.push({hip,knee,ankle});}
+  return {root,body,head,arms,legs,appearance,handPoints:{left:[-.025,-.32,.02],right:[.025,-.32,.02]}};
 }
 
 export function buildDistrictLife(world,destinations){

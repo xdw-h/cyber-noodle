@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {M,group,box,cyl,sphere,torus,link,label,planter,batch,colorMat,mesh,bowl,rnd} from './model-kit.js';
+import {M,group,box,cyl,sphere,torus,link,label,planter,batch,colorMat,mesh,bowl,rnd} from './model-kit.js?v=055';
 
 export const PLACES={
   town:{name:'春日里 · 小镇全景',target:[0,1,3],offset:[72,76,88],size:90,copy:'5.4 倍建模面积：住宅街、商店街、北街钟楼、河岸公园与镇民广场。拖动探索，日落后路灯自动亮起。'},

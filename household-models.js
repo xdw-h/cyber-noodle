@@ -46,6 +46,6 @@ export function poseStreetHousehold(model,resident,time,paused,reduced){
   const v=model.householdVisual;if(!v||paused)return;
   // A short retreat stays wholly in the entrance apron, before the wall at z=-6.85.
   model.root.position.z-=v.door*.28;model.root.scale.multiplyScalar(1-v.door);model.root.visible=v.door<.999;
-  if(v.bench>0){const blend=v.bench;model.root.position.y-=.30*blend;model.legs.forEach(leg=>{leg.hip.rotation.x=-Math.PI/2*blend;leg.knee.rotation.x=Math.PI/2*blend;leg.ankle.rotation.x=0;});model.arms.forEach(a=>a.rotation.x=-.45*blend);}
+  if(v.bench>0){const blend=v.bench;model.root.position.y-=.52*blend;model.legs.forEach(leg=>{leg.hip.rotation.x=-Math.PI/2*blend;leg.knee.rotation.x=Math.PI/2*blend;leg.ankle.rotation.x=0;});model.arms.forEach(a=>a.rotation.x=-.45*blend);}
   if(resident.greeting&&!v.bench){model.arms[1].rotation.x=-1.8;model.arms[1].rotation.z=-.35+(reduced?0:Math.sin(time*7+resident.id)*.12);}
 }

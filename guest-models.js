@@ -1,20 +1,21 @@
-import {M,group,box,sphere,link,bowl,batch,colorMat,label} from './model-kit.js';
+import {M,group,box,sphere,link,bowl,batch,colorMat,label} from './model-kit.js?v=055';
 import './character-motion.js';
 import './guest-feedback.js?v=051';
+import {characterStyle,detailTorso,detailHair} from './character-details.js?v=055';
 const motion=globalThis.NoodleMotion;
 export function buildGuest(world,id,profile=0){
-  const root=group(world,`顾客 #${id}`),shirt=colorMat(['#8caa97','#c58c60','#ac9498','#859cb5'][profile%4]);root.scale.setScalar(.9);
-  const torso=group(root,'上身',0,.85,0);box(torso,.38,.48,.27,0,.24,0,shirt,.1);box(torso,.27,.26,.08,0,.24,-.19,M.darkwood,.04);batch(torso);
-  const head=group(root,'面部',0,1.56,0);sphere(head,.225,0,0,0,M.skin,[.95,1.05,.88]);sphere(head,.23,0,.09,-.02,M.hair,[1,.75,.9]);const eyes=[-.075,.075].map(x=>{const eye=sphere(head,.017,x,-.02,.19,M.hair);eye.userData.dynamic=true;return eye;});link(head,[-.04,-.1,.18],[.04,-.1,.18],.007,M.hair);if(profile%4===0){box(head,.46,.06,.35,0,.2,0,M.tileDark,.05);box(head,.29,.025,.21,0,.18,.18,M.tileDark,.02);}batch(head);
+  const appearance=characterStyle(profile),root=group(world,`顾客 #${id}`),shirt=colorMat(['#8caa97','#c58c60','#ac9498','#859cb5'][profile%4]);root.scale.setScalar(.9);
+  const torso=group(root,'上身',0,.85,0);box(torso,appearance.width,.48,.27,0,.24,0,shirt,.08);box(torso,.27,.26,.08,0,.24,-.19,M.darkwood,.025);detailTorso(torso,appearance);batch(torso);
+  const head=group(root,'面部',0,1.56,0);sphere(head,.225,0,0,0,M.skin,[.95,1.05,.88]);detailHair(head,appearance);const eyes=[-.075,.075].map(x=>{const eye=sphere(head,.017,x,-.02,.19,M.hair);eye.userData.dynamic=true;return eye;});link(head,[-.04,-.1,.18],[.04,-.1,.18],.007,M.hair);batch(head);
   const legs=[],arms=[];
-  for(const side of [-1,1]){const leg=group(root,'大腿',side*.115,.85,0);link(leg,[0,0,0],[0,-.33,0],.075,M.pants);batch(leg);const knee=group(leg,'膝盖',0,-.33,0);link(knee,[0,0,0],[0,-.32,0],.065,M.pants);batch(knee);const ankle=group(knee,'脚掌',0,-.32,0);box(ankle,.17,.09,.27,0,0,.08,M.iron,.04);batch(ankle);legs.push({hip:leg,knee,ankle});const arm=group(root,'手臂',side*.24,1.24,0);link(arm,[0,0,0],[side*.03,-.27,.035],.065,shirt);sphere(arm,.065,side*.03,-.29,.04,M.skin);batch(arm);arms.push(arm);}
+  for(const side of [-1,1]){const leg=group(root,'大腿',side*.115,.85,0);link(leg,[0,0,0],[0,-.33,0],.075,M.pants);batch(leg);const knee=group(leg,'膝盖',0,-.33,0);link(knee,[0,0,0],[0,-.32,0],.065,M.pants);batch(knee);const ankle=group(knee,'脚掌',0,-.32,0);box(ankle,.17,.09,.27,0,0,.08,M.rubber,.025);box(ankle,.165,.018,.255,0,-.035,.08,M.canvas,.003);batch(ankle);legs.push({hip:leg,knee,ankle});const arm=group(root,'手臂',side*.24,1.24,0);link(arm,[0,0,0],[side*.03,-.27,.035],.065,shirt);sphere(arm,.065,side*.03,-.29,.04,M.skin);box(arm,.105,.045,.12,side*.025,-.235,.027,M.canvas,.004);batch(arm);arms.push(arm);}
   const tray=group(root,'端餐托盘',0,.91,.4);box(tray,.52,.025,.39,0,0,0,M.darkwood,.03);bowl(tray,0,.02,0,.17);batch(tray);tray.visible=false;
   const meal=group(world,`顾客 #${id} 的餐碗`),dish=bowl(meal,0,0,0,.19),mealFood=group(meal,'逐渐吃完的炒粉');for(const child of [...dish.children].slice(3))mealFood.add(child);batch(mealFood);mealFood.removeFromParent();for(const dx of [-.03,.03])link(meal,[dx,.17,-.06],[dx+.03,.27,.33],.009,M.darkwood);batch(meal);meal.add(mealFood);meal.visible=false;
   const phone=group(arms[1],'手机',-.025,-.29,.09);box(phone,.12,.2,.025,0,0,0,M.iron,.015);box(phone,.095,.16,.008,0,0,.018,M.cyan,.01);batch(phone);
   const chopsticks=group(arms[0],'夹粉筷子',0,-.29,.07);for(const dx of [-.025,.025])link(chopsticks,[dx,0,0],[dx,-.02,.33],.008,M.darkwood);batch(chopsticks);
   const bubble=group(world,'食客心情');const messages=['等位中…','先看看菜单','粉怎么还没来？','好香呀！','我们一起吃','少辣，谢谢','打包带走','下次还来！'];
   const captions=messages.map(text=>{const o=label(bubble,text,1.3,.32,0,0,0,{color:'#355b4d',bg:'#fff9e9'});o.material.depthTest=false;o.material.depthWrite=false;o.renderOrder=50;o.visible=false;return o;});
-  root.visible=false;return {root,torso,head,eyes,legs,arms,tray,meal,mealFood,phone,chopsticks,bubble,captions};
+  root.visible=false;return {root,torso,head,eyes,legs,arms,tray,meal,mealFood,phone,chopsticks,bubble,captions,appearance,handPoints:{left:[-.03,-.29,.04],right:[.03,-.29,.04]}};
 }
 export function poseGuest(model,g,seats,time,camera,dt=1/60,paused=false,reduced=false){
   if(paused&&model.motion)return;

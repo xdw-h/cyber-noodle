@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {M,rnd,group,box,cyl,sphere,torus,tube,link,label,bowl,planter,batch,colorMat,mesh} from './model-kit.js';
+import {M,rnd,group,box,cyl,sphere,torus,tube,link,label,bowl,planter,batch,colorMat,mesh} from './model-kit.js?v=055';
 
 export function buildArchitecture(world){
   const g=group(world,'Architecture · timber and ceramic');

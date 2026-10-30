@@ -1,18 +1,20 @@
 import * as T from 'three';
-import {OrbitControls} from './vendor/addons/controls/OrbitControls.js';
-import {RoomEnvironment} from './vendor/addons/environments/RoomEnvironment.js';
-import {M,group,box,cyl,sphere,label,link,planter,batch} from './model-kit.js';
-import {speechLabel} from './speech-bubble.js?v=051';
-import {buildArchitecture,buildKitchen,buildCounter,buildRobot,buildStove,buildTerminal,buildPerson,buildDrone,buildHelipad,buildGarden,buildTree,buildDecor} from './shop-models.js';
-import {buildDistrict,PLACES,DESTINATIONS} from './district-models.js';
-import {buildGuest,poseGuest} from './guest-models.js?v=053';
-import {streetHouseholdTarget,poseStreetHousehold} from './household-models.js?v=053';
-import {buildService,poseService} from './service-models.js';
-import {buildDistrictLife,poseDistrictLife} from './district-life.js';
-import {buildBranch,poseBranch} from './branch-models.js';
-import {buildTown,poseTown} from './town-models.js?v=054';
-import {renderPolicy,frameDue} from './render-policy.js';
-import {buildWeather,weatherTarget,poseWeather} from './weather-models.js?v=054';
+import {OrbitControls} from './vendor/addons/controls/OrbitControls.js?v=055';
+import {RoomEnvironment} from './vendor/addons/environments/RoomEnvironment.js?v=055';
+import {M,group,box,cyl,sphere,label,link,planter,batch} from './model-kit.js?v=055';
+import {speechLabel} from './speech-bubble.js?v=055';
+import {buildArchitecture,buildKitchen,buildCounter,buildRobot,buildStove,buildTerminal,buildPerson,buildDrone,buildHelipad,buildGarden,buildTree,buildDecor} from './shop-models.js?v=055';
+import {buildDistrict,PLACES,DESTINATIONS} from './district-models.js?v=055';
+import {buildGuest,poseGuest} from './guest-models.js?v=055';
+import {streetHouseholdTarget,poseStreetHousehold} from './household-models.js?v=055';
+import {buildService,poseService} from './service-models.js?v=055';
+import {buildDistrictLife,poseDistrictLife} from './district-life.js?v=055';
+import {buildBranch,poseBranch} from './branch-models.js?v=055';
+import {buildTown,poseTown} from './town-models.js?v=055';
+import {renderPolicy,frameDue} from './render-policy.js?v=055';
+import {buildWeather,weatherTarget,poseWeather} from './weather-models.js?v=055';
+import {pedestrianGround} from './town-street-details.js?v=055';
+import {buildContactShadows,poseContactShadows} from './character-details.js?v=055';
 
 const host=document.getElementById('scene-wrap'),loading=document.getElementById('three-loading');
 let renderer;
@@ -20,7 +22,7 @@ try{renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'hi
 catch(error){loading.innerHTML='<strong>3D 场景需要 WebGL 2</strong><span>请使用 Chrome / Edge 并开启浏览器图形加速，然后刷新页面。经营存档仍然保留。</span>';throw error;}
 renderer.domElement.id='three-canvas';renderer.domElement.setAttribute('aria-label','可拖动旋转和滚轮缩放的真实3D炒粉小店');renderer.domElement.setAttribute('role','img');host.prepend(renderer.domElement);
 const mobile=matchMedia('(pointer:coarse)').matches||innerWidth<740;
-renderer.setPixelRatio(renderPolicy({mobile,dpr:devicePixelRatio}).pixelRatio);renderer.shadowMap.enabled=false;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
+renderer.setPixelRatio(renderPolicy({mobile,dpr:devicePixelRatio}).pixelRatio);renderer.shadowMap.enabled=false;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
 const scene=new T.Scene();scene.background=new T.Color('#f0e8d5');
 const environment=new RoomEnvironment(),pmrem=new T.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(environment,.04).texture;scene.environmentIntensity=.32;environment.dispose();pmrem.dispose();
 const camera=new T.OrthographicCamera(-7,7,5,-5,.1,400);camera.position.set(11,10,14);
@@ -44,24 +46,26 @@ const dining=window.NoodleDining,service=buildService(world,dining.SEATS);
 const pedestrians=[];for(let i=0;i<18;i++)pedestrians.push(buildGuest(world,1000+i,i));
 // Keep each articulated rig for posing; submit identical street-person parts together.
 function instanceStreetPeople(models){
-  const buckets=new Map(),hiddenMatrix=new T.Matrix4().makeScale(0,0,0);
+  const buckets=new Map(),hiddenMatrix=new T.Matrix4().makeScale(0,0,0),frustum=new T.Frustum(),projection=new T.Matrix4(),bounds=new T.Sphere(new T.Vector3(),2.2);
   const signature=geometry=>{let hash=2166136261;const add=array=>{const bytes=new Uint8Array(array.buffer,array.byteOffset,array.byteLength);for(let i=0;i<bytes.length;i++)hash=Math.imul(hash^bytes[i],16777619);};for(const name of Object.keys(geometry.attributes).sort())add(geometry.attributes[name].array);if(geometry.index)add(geometry.index.array);return geometry.attributes.position.count+':'+(geometry.index?.count||0)+':'+hash;};
-  for(const model of models)model.root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;const key=mesh.material.uuid+':'+signature(mesh.geometry);if(!buckets.has(key))buckets.set(key,{geometry:mesh.geometry,material:mesh.material,parts:[]});buckets.get(key).parts.push(mesh);mesh.layers.set(1);});
+  for(const model of models)model.root.traverse(mesh=>{if(!mesh.isMesh||Array.isArray(mesh.material))return;const key=mesh.material.uuid+':'+signature(mesh.geometry);if(!buckets.has(key))buckets.set(key,{geometry:mesh.geometry,material:mesh.material,parts:[],owners:[]});buckets.get(key).parts.push(mesh);buckets.get(key).owners.push(model);mesh.layers.set(1);});
   const batches=[...buckets.values()].map(bucket=>{const mesh=new T.InstancedMesh(bucket.geometry,bucket.material,bucket.parts.length);mesh.name='动态街坊 · 合并部件';mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);mesh.frustumCulled=false;mesh.castShadow=true;mesh.receiveShadow=true;scene.add(mesh);return {...bucket,mesh};});
-  return {batches,update(){for(const model of models)model.root.updateWorldMatrix(true,true);for(const bucket of batches){bucket.parts.forEach((part,i)=>{let visible=true;for(let node=part;node&&node!==world;node=node.parent)if(!node.visible){visible=false;break;}bucket.mesh.setMatrixAt(i,visible?part.matrixWorld:hiddenMatrix);});bucket.mesh.instanceMatrix.needsUpdate=true;}}};
+  return {batches,update(){camera.updateMatrixWorld();frustum.setFromProjectionMatrix(projection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse));for(const model of models){model.root.updateWorldMatrix(true,true);model.root.getWorldPosition(bounds.center);bounds.center.y+=.8;model.frameVisible=model.root.visible&&frustum.intersectsSphere(bounds);}for(const bucket of batches){let any=false;bucket.parts.forEach((part,i)=>{let visible=bucket.owners[i].frameVisible;for(let node=part;node&&node!==world;node=node.parent)if(!node.visible){visible=false;break;}any||=visible;bucket.mesh.setMatrixAt(i,visible?part.matrixWorld:hiddenMatrix);});bucket.mesh.visible=any;bucket.mesh.instanceMatrix.needsUpdate=true;}}};
 }
 const streetInstances=instanceStreetPeople(pedestrians);
+const contactShadows=buildContactShadows(scene);
 function actualHouseholdResidents(living){return living?.map((r,i)=>({...r,home:!!r.home&&pedestrians[i].householdVisual?.inside&&pedestrians[i].householdVisual?.door>=1}));}
 // Six shared batches cover every shopping item; follow the existing hand rigs.
 function buildCommerceProps(models){
   const dummy=new T.Object3D(),matrix=new T.Matrix4(),hidden=new T.Matrix4().makeScale(0,0,0);
   const parts=[
-    {kind:'bakery',name:'早餐纸袋',geometry:new T.BoxGeometry(.25,.3,.14),material:new T.MeshStandardMaterial({color:'#caa267',roughness:1}),offset:[0,-.38,.07]},
-    {kind:'bakery',name:'纸袋里的面包',geometry:new T.SphereGeometry(.105,8,6),material:new T.MeshStandardMaterial({color:'#dfaa56',roughness:1}),offset:[0,-.2,.07],scale:[.8,1.3,.65]},
-    {kind:'book',name:'居民买的书',geometry:new T.BoxGeometry(.25,.32,.07),material:new T.MeshStandardMaterial({color:'#548b9c',roughness:1}),offset:[0,-.32,.11]},
-    {kind:'book',name:'书页',geometry:new T.BoxGeometry(.22,.28,.074),material:new T.MeshStandardMaterial({color:'#f3e8cf',roughness:1}),offset:[.012,-.32,.11]},
-    {kind:'flowers',name:'花束枝叶',geometry:new T.CylinderGeometry(.035,.018,.35,5),material:new T.MeshStandardMaterial({color:'#688c59',roughness:1}),offset:[0,-.19,.1]},
-    {kind:'flowers',name:'居民买的鲜花',geometry:new T.SphereGeometry(.105,7,5),material:new T.MeshStandardMaterial({color:'#da8a9b',roughness:1}),offset:[0,.02,.1],blossoms:[[-.075,-.025,0],[.075,-.025,0],[0,.07,0]]}
+    {kind:'bakery',name:'早餐纸袋',geometry:new T.BoxGeometry(.25,.3,.14),material:new T.MeshStandardMaterial({color:'#caa267',roughness:1}),offset:[.03,-.50,.04]},
+    {kind:'bakery',name:'纸袋提手',geometry:new T.TorusGeometry(.055,.009,4,8),material:M.darkwood,offset:[.03,-.30,.04]},
+    {kind:'bakery',name:'纸袋里的面包',geometry:new T.SphereGeometry(.105,8,6),material:new T.MeshStandardMaterial({color:'#dfaa56',roughness:1}),offset:[.03,-.38,.04],scale:[.8,1.3,.65]},
+    {kind:'book',name:'居民买的书',geometry:new T.BoxGeometry(.25,.32,.07),material:new T.MeshStandardMaterial({color:'#548b9c',roughness:1}),offset:[.03,-.36,.08]},
+    {kind:'book',name:'书页',geometry:new T.BoxGeometry(.22,.28,.074),material:new T.MeshStandardMaterial({color:'#f3e8cf',roughness:1}),offset:[.042,-.36,.08]},
+    {kind:'flowers',name:'花束枝叶',geometry:new T.CylinderGeometry(.035,.018,.35,5),material:new T.MeshStandardMaterial({color:'#688c59',roughness:1}),offset:[.03,-.19,.04]},
+    {kind:'flowers',name:'居民买的鲜花',geometry:new T.SphereGeometry(.105,7,5),material:new T.MeshStandardMaterial({color:'#da8a9b',roughness:1}),offset:[.03,.02,.04],blossoms:[[-.075,-.025,0],[.075,-.025,0],[0,.07,0]]}
   ];
   for(const part of parts){const offsets=part.blossoms||[[0,0,0]];part.transforms=offsets.map(offset=>{dummy.position.set(...part.offset).add(new T.Vector3(...offset));dummy.rotation.set(0,0,0);dummy.scale.set(...(part.scale||[1,1,1]));dummy.updateMatrix();return dummy.matrix.clone();});part.mesh=new T.InstancedMesh(part.geometry,part.material,models.length*offsets.length);part.mesh.name=part.name;part.mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);part.mesh.frustumCulled=false;for(let i=0;i<part.mesh.count;i++)part.mesh.setMatrixAt(i,hidden);scene.add(part.mesh);}
   const held=Array(models.length).fill(null);
@@ -127,9 +131,9 @@ function animate(now){frameRequest=0;if(document.hidden)return;frameRequest=requ
   for(const [id,model] of guestModels)if(!people.has(id)){for(const object of [model.root,model.meal,model.bubble]){object.traverse(o=>{if(o.isMesh){if(!o.userData.dynamic)o.geometry.dispose();if(o===model.bubble.pointer)o.material.dispose();if(o.material.map?.isCanvasTexture&&object===model.bubble){o.material.map.dispose();o.material.dispose();}}});object.removeFromParent();}guestModels.delete(id);}
   if(s){poseBranch(branchModels,s,time);poseDistrictLife(districtLife,s,time,camera,dt,reducedMotion.matches);poseService(service,s,time,dt*gameSpeed,reducedMotion.matches);if(now-lastDom>250){const c=dining.counts(s),text=`等位 ${c.queue} · 就座 ${c.occupied}/8 · 空碗 ${c.dirty} · 自取 ${guests.guests.size}`,node=document.getElementById('guest-status');if(node.textContent!==text)node.textContent=text;lastDom=now;}}
   let livingSnapshot;
-  if(s){const living=livingSnapshot=residentAPI.snapshot(s),activeNames=new Set([...people.values()].map(g=>g.name));for(const g of guests.guests.values())activeNames.add(g.name);pedestrians.forEach((p,i)=>{const r=living[i],target=streetHouseholdTarget(p,r,dt*gameSpeed,!!s.paused,reducedMotion.matches);let {x,z,facing}=target;if(r.arrived&&r.commerceVenue){if(r.commerceStage==='waiting'){const index=living.filter(other=>other.commerceVenue===r.commerceVenue&&other.commerceStage==='waiting').findIndex(other=>other.id===r.id);x+=.7*(index+1);z+=.65;facing=Math.PI;}else if(r.commerceStage==='completed'){x-=.6*(r.id%3+1);z+=.65;}}({x,z,facing}=weatherTarget(weather,p,r,{x,z,facing},dt*gameSpeed,!!s.paused));poseGuest(p,{id:1000+i,x,z,facing,phase:'leaving',group:'solo',walk:0},[],time,camera,dt*gameSpeed,!!s.paused,reducedMotion.matches);poseStreetHousehold(p,r,time,!!s.paused,reducedMotion.matches);const entering=r.inside&&Math.hypot(p.root.position.x-r.x,p.root.position.z-r.z)>.18,visible=p.householdVisual.door<.999&&(!r.inside||entering)&&!activeNames.has(r.name);p.root.visible=visible;p.bubble.visible=false;p.meal.visible=false;residentProxies[i].visible=visible;residentProxies[i].position.set(p.root.position.x,p.root.position.y+.8,p.root.position.z);residentProxies[i].userData.title=r.name+' · '+r.purpose;});}
+  if(s){const living=livingSnapshot=residentAPI.snapshot(s),activeNames=new Set([...people.values()].map(g=>g.name));for(const g of guests.guests.values())activeNames.add(g.name);pedestrians.forEach((p,i)=>{const r=living[i],target=streetHouseholdTarget(p,r,dt*gameSpeed,!!s.paused,reducedMotion.matches);let {x,z,facing}=target;if(r.arrived&&r.commerceVenue){if(r.commerceStage==='waiting'){const index=living.filter(other=>other.commerceVenue===r.commerceVenue&&other.commerceStage==='waiting').findIndex(other=>other.id===r.id);x+=.7*(index+1);z+=.65;facing=Math.PI;}else if(r.commerceStage==='completed'){x-=.6*(r.id%3+1);z+=.65;}}({x,z,facing}=weatherTarget(weather,p,r,{x,z,facing},dt*gameSpeed,!!s.paused));poseGuest(p,{id:1000+i,x,z,facing,phase:'leaving',group:'solo',walk:0},[],time,camera,dt*gameSpeed,!!s.paused,reducedMotion.matches);poseStreetHousehold(p,r,time,!!s.paused,reducedMotion.matches);if(!s.paused||p.groundOffset===undefined){const ground=pedestrianGround(p.root.position.x,p.root.position.z,town.buildings)-.22;p.groundOffset=globalThis.NoodleMotion.damp(p.groundOffset??ground,ground,14,dt*gameSpeed);p.root.position.y+=p.groundOffset*(1-(p.householdVisual.bench||0));}const entering=r.inside&&Math.hypot(p.root.position.x-r.x,p.root.position.z-r.z)>.18,visible=p.householdVisual.door<.999&&(!r.inside||entering)&&!activeNames.has(r.name);p.root.visible=visible;p.bubble.visible=false;p.meal.visible=false;residentProxies[i].visible=visible;residentProxies[i].position.set(p.root.position.x,p.root.position.y+.8,p.root.position.z);residentProxies[i].userData.title=r.name+' · '+r.purpose;});}
   commerceProps.update(livingSnapshot);poseTown(town,s,scene,camera,controls,sun,hemisphere,fill,floor,actualHouseholdResidents(livingSnapshot),time,reducedMotion.matches,weather);
-  poseWeather(weather,s,pedestrians.map((model,i)=>({model,resident:livingSnapshot?.[i]})).concat([...guestModels].map(([id,model])=>({model,id})),Object.values(districtLife.residents).flatMap(p=>[p.npc,p.companion])),controls.target,town,dt*gameSpeed,!!s?.paused,reducedMotion.matches);streetInstances.update();
+  poseWeather(weather,s,pedestrians.map((model,i)=>({model,resident:livingSnapshot?.[i]})).concat([...guestModels].map(([id,model])=>({model,id})),Object.values(districtLife.residents).flatMap(p=>[p.npc,p.companion])),controls.target,town,dt*gameSpeed,!!s?.paused,reducedMotion.matches);streetInstances.update();poseContactShadows(contactShadows,pedestrians);
   if(s)lifeBubbles.forEach((p,role)=>{const list=livingSnapshot.filter(r=>Math.floor(r.id/6)===role&&pedestrians[r.id].root.visible&&!r.greeting&&!r.companion&&!r.activity),r=list[Math.floor(s.elapsed/9)%Math.max(1,list.length)];p.bubble.userData={wanted:!!r&&s.phase==='open',anchor:r?{x:pedestrians[r.id].root.position.x,y:2.45,z:pedestrians[r.id].root.position.z}:null,priority:1,order:role+20};p.captions.forEach((c,i)=>c.visible=i===(r?.atShop?1:residentAPI.hour(s)>18?2:0));});
   const gathering=s?.social?.activity;socialNotice.visible=!!gathering&&s.phase==='open'&&s.elapsed>=gathering.start&&s.elapsed<gathering.end;socialNotice.quaternion.copy(camera.quaternion);if(socialNotice.visible){const projected=4.4*camera.zoom/(camera.right-camera.left)*host.clientWidth;socialNotice.scale.setScalar(Math.min(210,Math.max(160,projected))/Math.max(.001,projected));}
   greetingLiving=livingSnapshot?.filter(r=>r.greeting&&pedestrians[r.id].root.visible).slice(0,2)||[];
@@ -157,6 +161,15 @@ function branchDiagnostics(){const branch=state?.branch,model=branchModels[branc
 window.Noodle3D={sync,view,exportModel,diagnostics:()=>({webgl:renderer.getContext() instanceof WebGL2RenderingContext,frames,camera:camera.position.toArray(),zoom:camera.zoom,place:activePlace,places:Object.keys(PLACES),revision:T.REVISION,scene:world.name,drone:drone.root.position.toArray(),cooking:stove.fire.visible,branch:branchDiagnostics(),district:state?structuredClone(state.district):null,dining:state?{...dining.counts(state),server:structuredClone(state.dining.server),tables:structuredClone(state.dining.tables),ledger:structuredClone(state.stats),people:dining.people(state),settings:{autoSeat:state.dining.autoSeat,autoClean:state.dining.autoClean}}:null,guests:guestFlow.counts(guests),people:[...guests.guests.values()].map(g=>({id:g.id,phase:g.phase,x:g.x,z:g.z,seat:g.seat})),decor:Object.fromEntries(Object.entries(decor).map(([k,v])=>[k,v.visible]))})};
 if(window.NoodleApp)sync(window.NoodleApp.state);
 loading.hidden=true;document.body.classList.add('three-ready');
+window.Noodle3D.artSnapshot=()=>{
+  const bagHandle=commerceProps.parts.find(p=>p.name==='纸袋提手'),matrix=new T.Matrix4(),point=new T.Vector3(),hand=new T.Vector3();
+  const rect=renderer.domElement.getBoundingClientRect(),screen=(x,y,z)=>{const v=new T.Vector3(x,y,z).project(camera);return {x:rect.left+(v.x+1)*rect.width/2,y:rect.top+(1-v.y)*rect.height/2};};
+  const contacts=pedestrians.map((p,id)=>({id,visible:p.root.visible,scale:p.root.scale.x,bench:p.householdVisual?.bench||0,ground:.22+(p.groundOffset||0),groundTarget:pedestrianGround(p.root.position.x,p.root.position.z,town.buildings),feet:p.legs.map(l=>l.ankle.localToWorld(new T.Vector3(0,-.045,.08)).y),hip:p.root.position.y+.85*p.root.scale.y}));
+  const benchHits=new T.Raycaster(new T.Vector3(-34.6,1.4,20.08),new T.Vector3(0,-1,0)).intersectObject(town.root,true),benchSeat=benchHits.find(h=>h.object.material===M.wood)?.point.y??null;
+  const held=commerceProps.held.flatMap((kind,id)=>{if(kind!=='bakery')return [];bagHandle.mesh.getMatrixAt(id,matrix);point.setFromMatrixPosition(matrix);const p=pedestrians[id];hand.set(...p.handPoints.right).applyMatrix4(p.arms[1].matrixWorld);return [{id,kind,gripError:point.distanceTo(hand)}];});
+  const geometry=world.children.map(root=>{let triangles=0;root.traverse(o=>{if(o.isMesh)triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3*(o.isInstancedMesh?o.count:1);});return {name:root.name,triangles};}).filter(r=>r.triangles>20000).sort((a,b)=>b.triangles-a.triangles);
+  return {buildings:town.buildings.map(b=>({id:b.id,name:b.name,facade:b.facade,roof:b.roof,roofHeight:b.roofHeight,x:b.x,z:b.z,screen:screen(b.x,1.2,b.z+3.5)})),street:town.streetDetails,characters:pedestrians.map((p,id)=>({id,hair:p.appearance.hair,aged:p.appearance.aged,outfit:p.appearance.outfit,width:p.appearance.width})),district:Object.values(districtLife.residents).map(p=>({name:p.name,hair:p.npc.appearance.hair})),contacts,benchSeat,held,geometry,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,...renderer.info.memory},light:{points:town.lights.length,sun:sun.intensity,hemisphere:hemisphere.intensity,exposure:renderer.toneMappingExposure,shadows:renderer.shadowMap.enabled},instanceBuckets:streetInstances.batches.length};
+};
 window.Noodle3D.animationSnapshot=()=>({paused:!!state?.paused,reduced:reducedMotion.matches,guests:[...guestModels].map(([id,m])=>({id,position:m.root.position.toArray(),yaw:m.root.rotation.y,legs:m.legs.map(l=>l.hip.rotation.x),motion:{...m.motion}})),street:pedestrians.map(m=>({position:m.root.position.toArray(),yaw:m.root.rotation.y,legs:m.legs.map(l=>l.hip.rotation.x)}))});
 window.Noodle3D.weatherSnapshot=()=>({description:weather.description,intensity:weather.intensity,wet:weather.wet,clock:weather.clock,drops:weather.dropsVisible,capacity:weather.capacity,batches:5,people:weather.people,lightCount:town.lights.length,reflection:weather.reflections.visible,renderCalls:renderer.info.render.calls,rainSample:Array.from(weather.positions.slice(0,12))});
 window.Noodle3D.socialSnapshot=()=>({overview:state&&window.NoodleSocial?window.NoodleSocial.overview(state):null,noticeVisible:socialNotice.visible,people:state?residentAPI.snapshot(state).filter(r=>r.companion||r.activity).map(r=>({id:r.id,name:r.name,companion:r.companion,activity:r.activity,target:{x:r.x,z:r.z},position:pedestrians[r.id].root.position.toArray(),visible:pedestrians[r.id].root.visible})):[]});
