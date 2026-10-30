@@ -1,6 +1,6 @@
 import {M,group,box,sphere,link,bowl,batch,colorMat,label} from './model-kit.js';
 import './character-motion.js';
-import './guest-feedback.js';
+import './guest-feedback.js?v=051';
 const motion=globalThis.NoodleMotion;
 export function buildGuest(world,id,profile=0){
   const root=group(world,`顾客 #${id}`),shirt=colorMat(['#8caa97','#c58c60','#ac9498','#859cb5'][profile%4]);root.scale.setScalar(.9);

@@ -6,9 +6,10 @@
     const placed=[];
     for(const c of [...candidates].sort((a,b)=>b.priority-a.priority||(a.order||0)-(b.order||0)||String(a.id).localeCompare(String(b.id)))){
       if(placed.length>=max)break;if(c.x<0||c.x>width||c.w>width-16)continue;
-      for(let slot=0;slot<3;slot++){
-        const b={...c,x:Math.max(8+c.w/2,Math.min(width-8-c.w/2,c.x)),y:c.y-slot*(c.h+8)};
-        if(b.y-b.h/2<100||b.y+b.h/2>height-40||placed.some(p=>overlap(b,p)))continue;
+      const positions=c.speech?[c.y,...placed.flatMap(p=>[p.y-(p.h+c.h)/2-8,p.y+(p.h+c.h)/2+8]),c.y-c.h-8,c.y+c.h+8]:[c.y,c.y-c.h-8,c.y-2*(c.h+8)];
+      for(const y of positions){
+        const b={...c,x:Math.max(8+c.w/2,Math.min(width-8-c.w/2,c.x)),y};
+        if(b.y-b.h/2<100||b.y+b.h/2>height-(c.speech?100:40)||placed.some(p=>overlap(b,p)))continue;
         placed.push({...b,dx:b.x-c.x,dy:b.y-c.y});break;
       }
     }
