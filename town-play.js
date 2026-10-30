@@ -1,6 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.NoodleTownPlay=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
   const ACTIVITY_COST=25,ACTIVITY_CUSTOMERS=4,RESERVATION_CAP=3;
+  const Growth=typeof module==='object'&&module.exports?require('./growth.js'):globalThis.NoodleGrowth;
   const PRICES={noodles:1,greens:.5,egg:1,beef:2.5};
   const NAMES=['邻居阿岚','社区小林','楼上周姐'];
   const Residents=typeof module==='object'&&module.exports?require('./resident-life.js'):globalThis.NoodleResidents;
@@ -21,7 +22,7 @@
     const i=r.profiles.findIndex(p=>p.status==='pending');if(i<0||s.elapsed<66+i*4||s.orders.length>=5)return false;
     const p=r.profiles[i],person=Residents.PEOPLE[p.residentId];r.remaining--;r.arrived++;
     if(s.residentLife&&!s.residentLife.attempted.includes(p.residentId))s.residentLife.attempted.push(p.residentId);
-    const price=s.prices[p.type]+(s.future&&s.growth.special===p.type?1:0);
+    const price=s.prices[p.type]+Growth.specialBonus(s,p.type);
     if(price>p.budget){p.status='rejected';p.reason='售价超过预算';Sources.lost(s,p,'price');Relationships.fail(s,p,'price');s.stats.lost++;return true;}
     p.orderId=++s.sequence;p.status='arrived';const o={id:p.orderId,sourceId:p.sourceId,type:p.type,channel:'takeout',townSource:'residential',residentId:p.residentId,customer:person.name,budget:p.budget,status:'waiting',age:0,patience:person.patience,price:s.prices[p.type],person:p.residentId%4,tags:['晚餐预约']};Relationships.begin(s,o);s.orders.push(o);return true;
   }

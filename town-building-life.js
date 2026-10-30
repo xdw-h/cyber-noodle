@@ -1,0 +1,14 @@
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.NoodleBuildingLife=api;})(globalThis,function(){
+  'use strict';
+  const APARTMENTS=[{buildingId:'town-building-4',name:'榆树公寓 1 号楼',x:-39,z:-9,viaX:-35.5},{buildingId:'town-building-5',name:'榆树公寓 2 号楼',x:-31,z:-9,viaX:-35.5},{buildingId:'town-building-6',name:'东街公寓 3 号楼',x:32,z:-9,viaX:28.5}];
+  const HOMES=Array.from({length:18},(_,id)=>{const a=APARTMENTS[Math.floor(id/6)],unit=(Math.floor(id%6/2)+1)*100+(id%2+1);return {residentId:id,buildingId:a.buildingId,buildingName:a.name,unit,address:a.name+' · '+unit+' 室',entrance:{x:a.x,z:a.z+2.95,viaX:a.viaX},window:{column:id%2,floor:Math.floor(id%6/2)}};});
+  let metadata=[];
+  const household=id=>Number.isInteger(id)&&id>=0&&id<18?HOMES[id]:null;
+  const residents=()=>typeof module==='object'&&module.exports?require('./resident-life.js'):globalThis.NoodleResidents;
+  function configure(buildings){metadata=buildings.map(b=>({...b}));}
+  function hours(name,kind){return kind==='home'?null:name.includes('面包')||name.includes('早餐')?[7,15]:name.includes('书店')?[9,20]:name.includes('鲜花')?[9,19]:name.includes('图书馆')?[9,18]:name.includes('诊所')?[8,20]:[8,20];}
+  function defaults(){const rows=[];let n=0;for(const z of [-25,-9,1,18,31])for(const x of [-39,-31,32,40]){if(z===18&&x<0)continue;const shop=z===1||z===31,labels=z===1?['面包房','书店','鲜花铺','小镇超市']:['手作工坊','理发店','早餐铺','杂货铺'];rows.push({id:'town-building-'+n,name:shop?labels[n%4]:'邻里住宅 '+(n+1),kind:shop?'shop':'home',x,z});n++;}for(const x of [-17,-9,9,17])rows.push({id:'town-building-'+n++,name:'北街住宅 '+n,kind:'home',x,z:-25});rows.push({id:'town-building-'+n++,name:'春日里图书馆',kind:'public',x:-16,z:31},{id:'town-building-'+n,name:'小镇诊所',kind:'public',x:16,z:31});return rows;}
+  function snapshot(s,living){const api=residents(),rows=living||api.snapshot(s),hour=api.hour(s);const households=HOMES.map(h=>{const p=rows[h.residentId],lit=!!p?.home&&p.arrived===true;return {...h,name:p?.name||api.PEOPLE[h.residentId].name,home:lit,arrived:!!p?.arrived,lit,status:lit?'在家':p?.destination==='home'?'归家途中':'外出'};});const buildings=(metadata.length?metadata:defaults()).map(b=>{const home=APARTMENTS.find(a=>a.buildingId===b.id),h=hours(b.name,b.kind),members=households.filter(p=>p.buildingId===b.id),open=h?hour>=h[0]&&hour<h[1]:false;return {...b,name:home?.name||b.name,hours:h?`${String(h[0]).padStart(2,'0')}:00–${String(h[1]).padStart(2,'0')}:00`:'住户独立作息',open,status:b.kind==='home'?members.length?`${members.filter(p=>p.lit).length} / ${members.length} 户在家`:'空置住宅 · 待入住':open?'营业中':'已打烊',households:members};});return {hour,households,buildings};}
+  function building(s,id,living){return snapshot(s,living).buildings.find(b=>b.id===id)||null;}
+  return {APARTMENTS,HOMES,household,configure,hours,snapshot,building};
+});

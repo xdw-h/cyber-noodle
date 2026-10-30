@@ -4,7 +4,8 @@ import './town-cycle.js';
 const windowMaterial=new T.MeshStandardMaterial({color:'#abc5bd',emissive:'#ffcf7b',emissiveIntensity:0,roughness:.45}),lampMaterial=new T.MeshStandardMaterial({color:'#fff0c6',emissive:'#ffd08a',emissiveIntensity:0});
 const grass=colorMat('#abb88c'),road=colorMat('#707b76'),roofMaterials=['#a76e54','#708579','#b39c75','#727f96'].map(colorMat),walls=['#e8d8b7','#c9d6c8','#dcc8ae','#d2d7d7'].map(colorMat);
 export function buildTown(world){
-  const root=group(world,'春日里小镇 · 104 × 80'),ground=group(root,'扩建道路与公共空间'),architecture=group(root,'小镇建筑'),fixtures=group(root,'街道设施'),lamps=[],buildings=[],zones={};
+  const root=group(world,'春日里小镇 · 104 × 80'),ground=group(root,'扩建道路与公共空间'),architecture=group(root,'小镇建筑'),fixtures=group(root,'街道设施'),lamps=[],buildings=[],zones={},lifeAPI=globalThis.NoodleBuildingLife;
+  const dwellingMaterial=new T.MeshStandardMaterial({color:'#ffd39a',emissive:'#ffc36a',emissiveIntensity:.2,roughness:.6}),dynamic=group(root,'独立住户窗灯与商铺橱窗'),windowSlots=[],shopSlots=[];
   box(ground,104,.5,80,0,-.68,3,M.stoneDark,.3);box(ground,103.8,.09,79.8,0,-.39,3,grass,.15);
   const horizontal=[-31,-18,26,36],vertical=[-46,-25,25,46];
   for(const z of horizontal){box(ground,96,.08,3.2,0,-.27,z,road,.02);for(const side of [-1,1])box(ground,96,.08,.85,0,-.2,z+side*2.1,M.stoneLight,.02);for(let x=-46;x<=46;x+=3)box(ground,1.15,.015,.07,x,-.219,z,M.cream,.001);}
@@ -15,14 +16,16 @@ export function buildTown(world){
   box(ground,2.6,.08,19,-7,-.18,-22,road,.02);box(ground,2.6,.08,10,-6,-.18,24.9,road,.02);box(ground,2.6,.08,10,8,-.18,24.9,road,.02);
   function house(x,z,w,d,h,index,name,kind='home'){
     const zone=z<-15?'town-north':z>22?'town-river':x<0?'town-west':'town-east';if(!zones[zone]){zones[zone]=group(architecture,zone);zones[zone].userData={view:zone,title:'小镇街区 · 点击探索'};}const g=group(zones[zone],name,x,0,z);buildings.push({name,x,z,width:w,depth:d});
-    const id='town-building-'+index,action=name==='小镇超市'?'town-supermarket':kind==='home'?'town-residents':'town-venue';Object.assign(buildings[buildings.length-1],{id,kind,action,height:h});
+    const id='town-building-'+index,apartment=lifeAPI.APARTMENTS.find(a=>a.buildingId===id),action=name==='小镇超市'?'town-supermarket':kind==='home'?'town-residents':'town-venue';if(apartment)name=apartment.name;Object.assign(buildings[buildings.length-1],{id,name,kind,action,height:h});
     const proxy=new T.Mesh(new T.BoxGeometry(w,h+1,d),new T.MeshBasicMaterial({visible:false}));proxy.position.set(x,(h+1)/2,z);proxy.userData={action,value:id,title:name,buildingId:id};root.add(proxy);
     box(g,w+.6,.13,d+.6,0,-.15,0,M.stoneLight,.03);box(g,w,h,d,0,.04+h/2,0,walls[index%4],.09);
     if(kind==='home'){const roof=box(g,w*.66,.18,d+.6,-w*.22,h+.55,0,roofMaterials[index%4],.02);roof.rotation.z=.48;const other=box(g,w*.66,.18,d+.6,w*.22,h+.55,0,roofMaterials[index%4],.02);other.rotation.z=-.48;cyl(g,.16,.75,w*.23,h+.6,-d*.23,M.stoneDark);}
     else{box(g,w+.35,.2,d+.35,0,h+.15,0,roofMaterials[index%4],.025);box(g,w-.2,.1,d-.2,0,h+.3,0,M.stoneLight,.02);}
-    for(let y=1;y<h-.2;y+=1.05)for(let dx=-w/2+.6;dx<w/2-.3;dx+=1.1){box(g,.61,.65,.04,dx,y,d/2+.03,windowMaterial,.025);box(g,.7,.06,.16,dx,y-.35,d/2+.08,M.cream,.01);for(const side of [-1,1])box(g,.04,.65,.61,side*(w/2+.03),y,dx*(d/w),windowMaterial,.025);}
+    for(let y=1;y<h-.2;y+=1.05)for(let dx=-w/2+.6;dx<w/2-.3;dx+=1.1){if(!apartment){box(g,.61,.65,.04,dx,y,d/2+.03,windowMaterial,.025);box(g,.7,.06,.16,dx,y-.35,d/2+.08,M.cream,.01);}for(const side of [-1,1])box(g,.04,.65,.61,side*(w/2+.03),y,dx*(d/w),windowMaterial,.025);}
+    if(apartment){for(const home of lifeAPI.HOMES.filter(a=>a.buildingId===id)){const dx=home.window.column===0?-.95:.95,y=.85+home.window.floor*.9;box(g,.78,.65,.05,dx,y,d/2+.035,windowMaterial,.015);box(g,.92,.07,.16,dx,y-.37,d/2+.08,M.cream,.01);windowSlots.push({residentId:home.residentId,buildingId:id,address:home.address,x:x+dx,y,z:z+d/2+.07});}label(g,name,w-.1,.29,0,h+.16,d/2+.13,{bg:'#f4e8c9',color:'#526b5b'});}
     box(g,.72,1.1,.05,0,.45,d/2+.05,M.darkwood,.02);box(g,.46,.5,.055,0,.68,d/2+.09,windowMaterial,.01);sphere(g,.04,.24,.42,d/2+.13,M.metal);
     if(kind!=='home'){box(g,w+.15,.12,1,0,1.58,d/2+.3,roofMaterials[index%4],.03);label(g,name,w-.15,.35,0,2.03,d/2+.08,{bg:'#f4e8c9',color:'#526b5b'});}
+    if(kind!=='home')shopSlots.push({buildingId:id,x,y:.86,z:z+d/2+.13,width:w*.62});
     if(index%3===0){box(g,.6,.1,.6,-w*.28,h+.38,0,M.screen,.01);}
     return g;
   }
@@ -55,12 +58,16 @@ export function buildTown(world){
   const pools=new T.InstancedMesh(new T.PlaneGeometry(5,5),poolMaterial,lamps.length),dummy=new T.Object3D();lamps.forEach((p,i)=>{dummy.position.set(p.x,-.105,p.z);dummy.rotation.x=-Math.PI/2;dummy.updateMatrix();pools.setMatrixAt(i,dummy.matrix);});pools.name='路灯地面光池';pools.frustumCulled=false;root.add(pools);
   const lights=Array.from({length:8},()=>{const light=new T.PointLight('#ffd093',0,9,2);world.add(light);return light;});
   const clockLabel=document.createElement('div');clockLabel.className='town-clock';clockLabel.setAttribute('role','timer');document.getElementById('scene-wrap').append(clockLabel);
-  return {root,lamps,lights,buildings,poolMaterial,clockLabel,windowMaterial,lampMaterial};
+  lifeAPI.configure(buildings);
+  const dwellingWindows=new T.InstancedMesh(new T.BoxGeometry(.7,.57,.025),dwellingMaterial,windowSlots.length),shopWindows=new T.InstancedMesh(new T.BoxGeometry(1,.5,.025),dwellingMaterial,shopSlots.length);
+  dwellingWindows.name='18 户独立亮窗';shopWindows.name='按营业时段亮起的橱窗';for(const mesh of [dwellingWindows,shopWindows]){mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);mesh.frustumCulled=false;dynamic.add(mesh);}const windowDummy=new T.Object3D();windowDummy.scale.setScalar(0);windowDummy.updateMatrix();for(let i=0;i<windowSlots.length;i++)dwellingWindows.setMatrixAt(i,windowDummy.matrix);for(let i=0;i<shopSlots.length;i++)shopWindows.setMatrixAt(i,windowDummy.matrix);
+  return {root,lamps,lights,buildings,poolMaterial,clockLabel,windowMaterial,lampMaterial,dwellingMaterial,dwellingWindows,shopWindows,windowSlots,shopSlots,windowDummy,buildingLife:null,lifeSignature:''};
 }
 const dayColor=new T.Color('#f0e8d5'),duskColor=new T.Color('#c89588'),darkColor=new T.Color('#18263d'),floorNight=new T.Color('#263b57'),hemiDay=new T.Color('#fff3d6');
-export function poseTown(town,s,scene,camera,controls,sun,hemisphere,fill,floor){
+export function poseTown(town,s,scene,camera,controls,sun,hemisphere,fill,floor,living){
   const c=globalThis.NoodleTownCycle.daylight(s),changed=!town.cycle||Math.abs(town.cycle.hour-c.hour)>.002;town.cycle=c;const night=c.night;
   if(changed){scene.background.copy(dayColor).lerp(duskColor,Math.sin(night*Math.PI)*.55).lerp(darkColor,night);floor.material.color.copy(dayColor).lerp(floorNight,night);sun.intensity=3.1*(1-night)+.08;sun.color.set(night>.1?'#ffd0a0':'#ffdfa4');sun.position.set(-28+56*c.progress,12+27*c.sun,20);hemisphere.intensity=1.4*(1-night)+.22;hemisphere.color.set('#8aaada').lerp(hemiDay,1-night);fill.intensity=.8*(1-night)+.12;scene.environmentIntensity=.32*(1-night)+.07;}
-  town.windowMaterial.emissiveIntensity=night*1.2;town.lampMaterial.emissiveIntensity=night*3;town.poolMaterial.opacity=night;document.getElementById('scene-wrap').dataset.night=night>.5?'true':'false';
+  town.windowMaterial.emissiveIntensity=0;town.dwellingMaterial.emissiveIntensity=.25+night*1.45;town.lampMaterial.emissiveIntensity=night*3;town.poolMaterial.opacity=night;document.getElementById('scene-wrap').dataset.night=night>.5?'true':'false';
+  if(s){const signature=s.day+'|'+s.phase+'|'+Math.floor((s.elapsed||0)*10);if(signature!==town.lifeSignature){town.lifeSignature=signature;town.buildingLife=globalThis.NoodleBuildingLife.snapshot(s,living);const d=town.windowDummy;town.windowSlots.forEach((slot,i)=>{const lit=town.buildingLife.households[slot.residentId].lit;d.position.set(slot.x,slot.y,slot.z);d.scale.setScalar(lit?1:0);d.updateMatrix();town.dwellingWindows.setMatrixAt(i,d.matrix);});town.shopSlots.forEach((slot,i)=>{const open=town.buildingLife.buildings.find(b=>b.id===slot.buildingId)?.open;d.position.set(slot.x,slot.y,slot.z);d.scale.set(open?slot.width:0,open?1:0,open?1:0);d.updateMatrix();town.shopWindows.setMatrixAt(i,d.matrix);});town.dwellingWindows.instanceMatrix.needsUpdate=true;town.shopWindows.instanceMatrix.needsUpdate=true;}}
   if(!town.lightTarget||town.lightTarget.distanceToSquared(controls.target)>1){town.lightTarget=controls.target.clone();town.nearby=town.lamps.map(p=>({p,d:p.distanceToSquared(controls.target)})).sort((a,b)=>a.d-b.d);town.lights.forEach((light,i)=>light.position.copy(town.nearby[i].p));}town.lights.forEach(light=>{light.intensity=night*14;});const text=`日照 ${c.clock} · ${c.phase}${c.mode==='manual'?' · 手动':''}${s?.paused?' · 暂停':''}`;if(town.clockLabel.textContent!==text)town.clockLabel.textContent=text;
 }

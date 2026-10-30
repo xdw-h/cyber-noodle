@@ -5,6 +5,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const Growth = typeof module === 'object' && module.exports ? require('./growth.js') : globalThis.NoodleGrowth;
+  const Roadmap = typeof module === 'object' && module.exports ? require('./growth-roadmap.js') : globalThis.NoodleRoadmap;
   const Dining = typeof module === 'object' && module.exports ? require('./dining.js') : globalThis.NoodleDining;
   const District = typeof module === 'object' && module.exports ? require('./district.js') : globalThis.NoodleDistrict;
   const Branch = typeof module === 'object' && module.exports ? require('./branch.js') : globalThis.NoodleBranch;
@@ -49,7 +50,7 @@
       branch: null, future: false, aiMode: 'manual', aiLog: [], robotMode: 'standard', robotHealth: 100, robotLevel: 1,
       drone: { owned: false, level: 1, battery: 100, auto: false, mission: null }, readyDeliveries: [], totalDelivered: 0,
       remoteIn: 4, weather: 'clear', growth: Growth.initial(), dining: Dining.create(), district: District.initial() };
-    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state); return state;
+    state.businessVersion=1;state.sourceLedger=Sources.create(state.day);state.residentLife=Residents.create();state.relationships=Relationships.create(state);Town.ensure(state);state.commissions=Commissions.create(state);state.townEvents=Events.create(state);state.roadmap=Roadmap.create(state);return state;
   }
   function enableFuture(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -201,7 +202,7 @@
   function collect(s, order, remote) {
     let price = order.price || s.prices[order.type];
     const growth = Growth.ensure(s);
-    if(!order.lockedPrice && s.future && growth.special === order.type) price += 1;
+    if(!order.lockedPrice) price += Growth.specialBonus(s,order.type);
     if(!order.lockedPrice && s.future && order.preferenceMatch && s.aiMode!=='manual') price += growth.research.ai;
     if(order.channel==='dinein')price=money(price*(order.serviceDiscount||1));
     if (remote && s.elapsed + (s.closingElapsed || 0) - (order.createdAt || 0) > (order.deadline || 42) + (growth.decor.warmer ? 8 : 0)) { price = money(price * .8); s.stats.late++; s.reputation = Math.max(0,s.reputation-1); }
@@ -305,6 +306,7 @@
     Relationships.finish(s);const relationships=Relationships.report(s);if(relationships)s.lastReport.relationships=relationships;
     Sources.finish(s);const sources=Sources.report(s);if(sources){s.lastReport.sources=sources;s.stats.lost=sources.rows.slice(0,5).reduce((n,r)=>n+r.lost,0);s.lastReport.lost=s.stats.lost;}
     Events.finish(s);const townEvents=Events.report(s);if(townEvents)s.lastReport.townEvents=townEvents;
+    Roadmap.settle(s);const roadmap=Roadmap.report(s);if(roadmap)s.lastReport.roadmap=roadmap;
     s.history.push(clone(s.lastReport)); if (s.history.length > 30) s.history.shift();
     if(!Town.solvency(s).viable)Town.liquidate(s);
   }
@@ -323,7 +325,7 @@
       const priceRejected=random(s)>Math.max(.45,1-markup*1.8);
       if(priceRejected&&!resident){Sources.reject(s,'street','price');return;}
       const offer={id:++s.sequence,type,status:'waiting',age:0,patience:profile.patience+(Growth.ensure(s).decor.bench?5:0),price:s.prices[type],person:Growth.CUSTOMERS.indexOf(profile),customer:profile.name,text:profile.line,preferenceMatch:type===profile.type,tags:[profile.name,type===profile.type?'偏好餐品':'换个口味']};
-      if(resident){const total=s.prices[type]+(Growth.ensure(s).special===type?1:0)+(s.aiMode!=='manual'?Growth.ensure(s).research.ai:0);if(total>resident.budget){Sources.reject(s,Sources.classify({residentId:resident.id}),'price');Relationships.fail(s,{residentId:resident.id,type},'price');return;}Object.assign(offer,{residentId:resident.id,customer:resident.name,person:resident.id%4,patience:resident.patience,text:resident.role+' · '+resident.purpose,tags:[resident.role,'小镇居民'],preferenceMatch:true});Relationships.begin(s,offer);}
+      if(resident){const total=s.prices[type]+Growth.specialBonus(s,type)+(s.aiMode!=='manual'?Growth.ensure(s).research.ai:0);if(total>resident.budget){Sources.reject(s,Sources.classify({residentId:resident.id}),'price');Relationships.fail(s,{residentId:resident.id,type},'price');return;}Object.assign(offer,{residentId:resident.id,customer:resident.name,person:resident.id%4,patience:resident.patience,text:resident.role+' · '+resident.purpose,tags:[resident.role,'小镇居民'],preferenceMatch:true});Relationships.begin(s,offer);}
       if(Dining.ensure(s).enabled&&offer.id%4!==1)Dining.arrive(s,offer,resident?'solo':undefined);else{Sources.track(s,offer);s.orders.push({...offer,channel:'takeout'});}
       return;
     }
@@ -413,7 +415,7 @@
     Commissions.nextDay(s);
     s.sourceLedger=Sources.create(s.day);
     Events.nextDay(s);
-    s.stats = ledger(s.cash); return ok(`第 ${s.day} 天，准备开店！`);
+    s.stats = ledger(s.cash); Roadmap.nextDay(s);return ok(`第 ${s.day} 天，准备开店！`);
   }
   function buyRobot(s) {
     if(Town.ensure(s).terminal)return no('本局已结束。');
@@ -463,6 +465,7 @@
       if(!Relationships.valid(s))throw Error();
       if(!Commissions.valid(s))throw Error();
       if(!Events.valid(s))throw Error();
+      if(!Roadmap.valid(s))throw Error();
       if (!int(s.day, 1, 1000000) || !number(s.cash, 0, 1e10) || !number(s.reputation, 0, 100) || typeof s.robot !== 'boolean' || !int(s.seed, 0, 4294967295)) throw Error();
       if (!s.inventory || Object.keys(INGREDIENTS).some(k => !int(s.inventory[k], 0, 1e7))) throw Error();
       if (!s.prices || Object.entries(MENU).some(([k, v]) => !int(s.prices[k], Math.ceil(v.base * .8), Math.floor(v.base * 1.2)))) throw Error();
@@ -475,6 +478,7 @@
       const validReport = r => r && int(r.day, 1, s.day) && Object.keys(ledger(0)).every(k => number(r[k], 0, 1e10)) && number(r.profit, -1e10, 1e10) && number(r.endCash, 0, 1e10) && number(r.cashFlow, -1e10, 1e10) && (r.branch == null || Branch.validReport(r.branch,r.day)) && (r.totalProfit === undefined || number(r.totalProfit,-1e10,1e10) && Math.abs(r.totalProfit-money(r.profit+(r.branch?.profit||0)))<.001) && (r.totalRevenue === undefined || number(r.totalRevenue,0,1e10) && Math.abs(r.totalRevenue-money(r.revenue+(r.branch?.revenue||0)))<.001) && (r.totalServed === undefined || int(r.totalServed,0,1e10) && r.totalServed===r.served+(r.branch?.served||0));
       if (s.history.some(r => !validReport(r)) || (s.lastReport !== null && !validReport(s.lastReport)) || (s.phase === 'report' && !s.lastReport)) throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Relationships.validReport(r.relationships,r.day)))throw Error();
+      if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Roadmap.validReport(r.roadmap,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Commissions.validReport(r.commissions,r.day)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>!Events.validReport(r.townEvents,r.day)||r.townEvents&&(r.townEvents.revenue>r.revenue||r.townEvents.served>r.served)))throw Error();
       if(s.history.concat(s.lastReport?[s.lastReport]:[]).some(r=>{const e=r.townEvents;if(!e||e.kind==='quiet')return false;const source=r.sources?.rows?.find(x=>x.key===({rain:'residential',overtime:'tech',market:'park'}[e.kind]));return !source||e.requested>source.demand||e.served>source.served||e.revenue>source.revenue+.001||e.lost+e.missed>source.lost;}))throw Error();
@@ -491,5 +495,5 @@
       return { ok: true, state: clone(s), wasOpen: data.wasOpen };
     } catch (_) { return { ok: false, message: '存档内容损坏或版本不兼容。可以下载原存档备份，再开始新游戏。' }; }
   }
-  return { Growth, Dining, District, Branch, Town, Residents, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
+  return { Growth, Roadmap, Dining, District, Branch, Town, Residents, Sources, Relationships, Commissions, Events, INGREDIENTS, MENU, ROUTES, SUPPLIES, clone, createState, createFutureState, enableFuture, analyzeDemand, forecast, setAIMode, setRobotMode, repairRobot, upgradeRobot, upgradeDrone, requestSupply, routeInfo, dispatchDrone, dispatchGround, purchase, setPrice, openingFees, openDay, available, canMake, enqueue, tick, closeDay, nextDay, buyRobot, advice, encodeSave, decodeSave };
 });
