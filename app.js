@@ -265,6 +265,8 @@
     'branch-recommend'() { for(const[k,n]of Object.entries(E.Branch.recommend(state).basket))$('branch-buy-'+k).value=n;window.NoodleBranchUI.updateBasket(); },
     'branch-purchase'() { if(transaction(E.Branch.purchase(state,window.NoodleBranchUI.basket())))showBranches(); },
     'branch-enabled'(b) { if(transaction(E.Branch.setEnabled(state,b.dataset.value==='on')))showBranches(); },
+    'branch-menu-save'(b) { const k=b.dataset.value;if(transaction(E.Branch.setMenu(state,k,Number($('branch-price-'+k).value),state.branch.promoted===k)))showBranches(); },
+    'branch-menu-promote'(b) { const k=b.dataset.value;if(transaction(E.Branch.setMenu(state,k,Number($('branch-price-'+k).value),state.branch.promoted!==k)))showBranches(); },
     'branch-refresh'() { showBranches(); },
     'branch-main'() { closeModal();window.Noodle3D?.view('front'); },
     'branch-visit'(b) { closeModal();window.Noodle3D?.view(b.dataset.value); },

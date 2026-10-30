@@ -12,12 +12,26 @@
   const costOf=basket=>Object.entries(basket).reduce((sum,[k,n])=>sum+ingredients[k].price*n,0);
   const profit=b=>money(b.stats.revenue-b.stats.cogs-b.stats.waste-b.stats.operating);
   function ensure(s){if(s.branch===undefined)s.branch=null;return s.branch;}
+  function profile(s){
+    const b=s.branch,t=s.elapsed||0,weekend=(s.day-1)%7>=5;
+    const weights={park:{plain:2,egg:3,beef:5},community:{plain:3,egg:5,beef:2},camp:{plain:5,egg:2,beef:3}}[b.place];
+    const rate=b.place==='park'?(t>=20&&t<50?1.65:.65):b.place==='community'?(t>=55?1.6:.75):(weekend?1.6:.8);
+    const mix={...weights};if(b.promoted)mix[b.promoted]*=1.7;
+    return {rate,weights:mix,label:b.place==='park'?'午间办公客 · 偏爱牛肉粉':b.place==='community'?'晚餐邻里客 · 偏爱鸡蛋粉':'周末野餐客 · 偏爱原味粉'};
+  }
+  function setMenu(s,type,price,promote){
+    const b=ensure(s);if(!b||s.phase!=='prep'||!Object.hasOwn(menu,type)||!Number.isFinite(price)||Math.abs(money(price)-price)>.000001||price<menu[type].base*.8||price>menu[type].base*1.2||typeof promote!=='boolean')return result(false,'营业前设置菜单，售价须为原价的 80%–120%，最多两位小数。');
+    if(!b.prices){b.prices=clone(s.prices);b.promoted=null;}b.prices[type]=price;
+    if(promote)b.promoted=type;else if(b.promoted===type)b.promoted=null;
+    return result(true,'分店菜单已保存，主推只影响选择偏好，实际出餐后才收款。');
+  }
   function establish(s,place){
     if(s.phase!=='prep'||!s.future)return result(false,'请在科技小店营业前安排分店。');
     if(ensure(s))return result(false,'已拥有第二家店，本轮最多经营两家店。');
     if(!own(place))return result(false,'请选择科技园、社区或营地。');
     const site=SITES[place];if(s.cash<site.cost)return result(false,`开设${site.name}需要 ¥${site.cost}，还需预留两店备货与运营费。`);
     s.branch={place,enabled:true,day:s.day,openedDay:0,inventory:Object.fromEntries(Object.keys(ingredients).map(k=>[k,0])),stats:ledger(),orders:[],current:null,receipts:[],arrivalIn:2,sequence:0,seed:((s.seed^0x93be12)>>>0)||913,totalServed:0,lastReport:null};
+    s.branch.prices=clone(s.prices);s.branch.promoted=null;
     s.cash=money(s.cash-site.cost);s.branch.stats.equipment=site.cost;
     return result(true,`${site.name}已开设！先为分店备货，开门后机器人自动经营。`);
   }
@@ -32,7 +46,8 @@
   }
   function recommend(s){
     const b=ensure(s);if(!b)return {target:0,basket:{},cost:0};
-    const target=SITES[b.place].target,desired={noodles:target,greens:target,egg:Math.ceil(target/3),beef:Math.ceil(target/3)};
+    const p=profile(s),weights=p.weights,total=Object.values(weights).reduce((a,n)=>a+n,0);
+    const target=Math.ceil(SITES[b.place].target*(b.place==='camp'?((s.day-1)%7>=5?1.6:.8):1)),desired={noodles:target,greens:target,egg:Math.ceil(target*weights.egg/total),beef:Math.ceil(target*weights.beef/total)};
     const basket=Object.fromEntries(Object.entries(desired).map(([k,n])=>[k,Math.max(0,n-b.inventory[k])]));
     return {target,basket,cost:costOf(basket)};
   }
@@ -46,12 +61,13 @@
       for(const o of b.orders)o.age+=dt;
       const expired=b.orders.filter(o=>o.age>=20);b.stats.lost+=expired.length;b.orders=b.orders.filter(o=>o.age<20);
       b.arrivalIn-=dt;if(b.arrivalIn<=0){
-        const site=SITES[b.place],type=site.mix[Math.floor(random(b)*3)];
-        const markup=s.prices[type]/menu[type].base-1;
+        const site=SITES[b.place],p=profile(s),entries=Object.entries(p.weights),total=entries.reduce((a,[,n])=>a+n,0);let draw=random(b)*total,type=entries.at(-1)[0];
+        if(!b.prices)type=site.mix[Math.floor(draw/total*3)];else for(const[k,n]of entries){draw-=n;if(draw<0){type=k;break;}}
+        const prices=b.prices||s.prices,markup=prices[type]/menu[type].base-1;
         if(random(b)<=Math.max(.45,1-markup*1.8)){
-          if(b.orders.length<4)b.orders.push({id:++b.sequence,type,price:s.prices[type],age:0,shortageSeen:false});else b.stats.lost++;
+          if(b.orders.length<4)b.orders.push({id:++b.sequence,type,price:prices[type],age:0,shortageSeen:false});else b.stats.lost++;
         }else if(s.sourceLedger)b.stats.lost++;
-        b.arrivalIn=site.interval*(.9+random(b)*.2);
+        b.arrivalIn=site.interval*(.9+random(b)*.2)/(b.prices?p.rate:1);
       }
       if(!b.current){
         const at=b.orders.findIndex(o=>Object.entries(menu[o.type].recipe).every(([k,n])=>b.inventory[k]>=n));
@@ -71,7 +87,7 @@
     for(const[k,item]of Object.entries(ingredients))if(item.perishable){b.stats.waste=money(b.stats.waste+b.inventory[k]*item.price);b.inventory[k]=0;}
     b.orders=[];b.current=null;b.lastReport={day:s.day,place:b.place,enabled:b.enabled,...clone(b.stats),profit:profit(b)};
   }
-  function nextDay(s){const b=ensure(s);if(!b)return;b.day=s.day;b.openedDay=0;b.stats=ledger();b.orders=[];b.current=null;b.receipts=[];b.arrivalIn=2;}
+  function nextDay(s){const b=ensure(s);if(!b)return;if(!b.prices){b.prices=clone(s.prices);b.promoted=null;}b.day=s.day;b.openedDay=0;b.stats=ledger();b.orders=[];b.current=null;b.receipts=[];b.arrivalIn=2;}
   function validReport(r,maxDay){
     const num=(n,a=0,max=1e10)=>typeof n==='number'&&Number.isFinite(n)&&n>=a&&n<=max;
     return !!r&&Number.isInteger(r.day)&&r.day>=1&&r.day<=maxDay&&own(r.place)&&typeof r.enabled==='boolean'&&Object.keys(ledger()).every(k=>num(r[k]))&&['served','lost','shortage'].every(k=>Number.isInteger(r[k]))&&num(r.profit,-1e10)&&Math.abs(r.profit-money(r.revenue-r.cogs-r.waste-r.operating))<.001;
@@ -80,6 +96,7 @@
     const b=ensure(s);if(b===null)return true;
     const int=(n,a,max)=>Number.isInteger(n)&&n>=a&&n<=max,num=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1e10;
     if(!b||Array.isArray(b)||!own(b.place)||typeof b.enabled!=='boolean'||b.day!==s.day||!int(b.day,1,1e6)||!int(b.openedDay,0,s.day)||!int(b.seed,0,4294967295)||!int(b.sequence,0,1e10)||!int(b.totalServed,0,1e10))return false;
+    if(b.prices!==undefined&&(!b.prices||Array.isArray(b.prices)||Object.keys(b.prices).length!==Object.keys(menu).length||Object.keys(menu).some(k=>!num(b.prices[k])||b.prices[k]<menu[k].base*.8||b.prices[k]>menu[k].base*1.2)||!(b.promoted===null||Object.hasOwn(menu,b.promoted))))return false;
     if(!b.inventory||Object.keys(ingredients).some(k=>!int(b.inventory[k],0,1e7))||!b.stats||Object.keys(ledger()).some(k=>!num(b.stats[k]))||['served','lost','shortage'].some(k=>!Number.isInteger(b.stats[k])))return false;
     if(b.current!==null||!Array.isArray(b.orders)||b.orders.length||!num(b.arrivalIn)||!Array.isArray(b.receipts)||b.receipts.length>6)return false;
     if(b.receipts.some(r=>!r||!int(r.id,1,b.sequence)||!Object.hasOwn(menu,r.type)||!num(r.price))||new Set(b.receipts.map(r=>r.id)).size!==b.receipts.length)return false;
@@ -89,5 +106,5 @@
     if(s.phase==='report'&&(!b.lastReport||b.lastReport.day!==s.day||b.lastReport.enabled!==b.enabled||b.lastReport.profit!==profit(b)||Object.keys(ledger()).some(k=>b.lastReport[k]!==b.stats[k])))return false;
     return true;
   }
-  return {SITES,configure,ensure,establish,purchase,recommend,setEnabled,fee,open,step,close,hasWork,settle,nextDay,profit,validReport,valid};
+  return {SITES,configure,ensure,establish,purchase,recommend,setEnabled,setMenu,profile,fee,open,step,close,hasWork,settle,nextDay,profit,validReport,valid};
 });
