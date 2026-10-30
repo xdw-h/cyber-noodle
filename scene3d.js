@@ -117,7 +117,7 @@ function arrangeBubbles(){
     const target=new T.Vector3(p.anchor.x,p.anchor.y-.3,p.anchor.z);p.bubble.updateWorldMatrix(true,false);p.bubble.worldToLocal(target);target.z=0;const localWidth=p.w/width*(camera.right-camera.left)/camera.zoom/p.bubble.scale.x,localHeight=p.h/height*(camera.top-camera.bottom)/camera.zoom/p.bubble.scale.y,clip=globalThis.NoodleFeedback.pointerEdge(target.x,target.y,localWidth,localHeight),edge=new T.Vector3(clip.x,clip.y,0),delta=target.clone().sub(edge),length=delta.length();const pointer=p.bubble.pointer;pointer.visible=clip.visible&&length>.03;pointer.position.copy(edge).addScaledVector(delta,.5);pointer.scale.set(1,length,1);if(length>.001)pointer.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());
     bubblePoint.copy(p.bubble.position).project(camera);bubbleLayout.push({id:p.id,x:(bubblePoint.x+1)*width/2,y:(1-bubblePoint.y)*height/2,w:p.w,h:p.h,priority:p.priority});}
 }
-let frameRequest=0,lastRendered=0,lastDom=0,lastBubbles=0;
+let frameRequest=0,lastRendered=0,lastDom=0;
 function animate(now){frameRequest=0;if(document.hidden)return;frameRequest=requestAnimationFrame(animate);if(!frameDue(now,lastRendered,fpsLimit))return;lastRendered=now;const dt=Math.min(.2,(now-previous)/1000);previous=now;
   if(!state?.paused&&!reducedMotion.matches)time+=dt;
   const s=state,m=s?.drone.mission,cooking=!!s?.current&&!s?.paused;
@@ -138,7 +138,7 @@ function animate(now){frameRequest=0;if(document.hidden)return;frameRequest=requ
   const gathering=s?.social?.activity;socialNotice.visible=!!gathering&&s.phase==='open'&&s.elapsed>=gathering.start&&s.elapsed<gathering.end;socialNotice.quaternion.copy(camera.quaternion);if(socialNotice.visible){const projected=4.4*camera.zoom/(camera.right-camera.left)*host.clientWidth;socialNotice.scale.setScalar(Math.min(210,Math.max(160,projected))/Math.max(.001,projected));}
   greetingLiving=livingSnapshot?.filter(r=>r.greeting&&pedestrians[r.id].root.visible).slice(0,2)||[];
   greetingBubbles.forEach((p,i)=>{const r=greetingLiving[i],model=r?pedestrians[r.id]:null,key=r?`${s.day}:${r.greeting.eventId}:${r.id}`:null;if(key!==p.eventKey){p.eventKey=key;p.fade=reducedMotion.matches?1:0;}if(reducedMotion.matches)p.fade=1;else if(!s?.paused)p.fade=Math.min(1,p.fade+dt*gameSpeed/.24);const ease=1-Math.pow(1-p.fade,3);p.residentId=r?.id??null;p.text=r?.greeting.text||null;const caption=greetingTexts.indexOf(p.text);p.captions.forEach((mesh,j)=>{mesh.visible=j===caption;mesh.material.opacity=ease;mesh.position.y=-(1-ease)*.12;});p.bubble.userData={speech:true,wanted:!!r&&caption>=0&&s?.phase==='open',anchor:model?{x:model.root.position.x,y:2.65,z:model.root.position.z}:null,priority:6,order:i};});
-  controls.update();camera.updateMatrixWorld();if(now-lastBubbles>100){arrangeBubbles();lastBubbles=now;}renderer.shadowMap.enabled=highQuality&&!!composer;if(highQuality&&composer)composer.render();else renderer.render(scene,camera);frames++;
+  controls.update();camera.updateMatrixWorld();arrangeBubbles();renderer.shadowMap.enabled=highQuality&&!!composer;if(highQuality&&composer)composer.render();else renderer.render(scene,camera);frames++;
   if(now-lastInfo>2000){document.getElementById('three-quality').textContent=highQuality?'精细光照 ⇄':'流畅模式 ⇄';lastInfo=now;}
 }
 function resumeRender(){previous=performance.now();lastRendered=0;if(!document.hidden&&!frameRequest)frameRequest=requestAnimationFrame(animate);}
