@@ -2,6 +2,7 @@
   'use strict';
   const ACTIVITY_COST=25,ACTIVITY_CUSTOMERS=4,RESERVATION_CAP=3;
   const Growth=typeof module==='object'&&module.exports?require('./growth.js'):globalThis.NoodleGrowth;
+  const Layout=typeof module==='object'&&module.exports?require('./dining-layout.js'):globalThis.NoodleDiningLayout;
   const PRICES={noodles:1,greens:.5,egg:1,beef:2.5};
   const NAMES=['邻居阿岚','社区小林','楼上周姐'];
   const Residents=typeof module==='object'&&module.exports?require('./resident-life.js'):globalThis.NoodleResidents;
@@ -38,7 +39,7 @@
     for(const row of rows){const [shop,key]=row.id.split(':');if(key)(shop==='main'?s.inventory:s.branch.inventory)[key]=0;else if(row.id==='robot'){s.robot=false;t.paidRobot=false;}else if(row.id==='robotUpgrade'){s.robotLevel=1;t.paidRobotUpgrade=false;}else if(row.id==='droneUpgrade'){s.drone.level=1;t.paidDroneUpgrade=false;}else {if(s.phase==='prep')s.branch.enabled=false;t.branchSold=true;}}
     const proceeds=round(rows.reduce((n,r)=>n+r.value,0));s.cash=round(s.cash+proceeds);t.sales=round(t.sales+proceeds);return {ok:true,message:`资产回收 ¥${proceeds}，不计营业收入。`,rows,proceeds};
   }
-  function solvency(s){const t=ensure(s),rows=assets(s),assetValue=round(rows.reduce((n,r)=>n+r.value,0)),minFee=s.robot&&!t.paidRobot?(s.future?70:80):60;const missing=Math.max(0,1-s.inventory.noodles)*2+Math.max(0,1-s.inventory.greens);const viable=s.cash>=minFee+missing||s.cash+assetValue>=minFee+3;return {viable,cash:s.cash,assetValue,netAssets:round(s.cash+assetValue),minimumOpening:minFee,minimumMeal:missing,rows};}
+  function solvency(s){const t=ensure(s),rows=assets(s),assetValue=round(rows.reduce((n,r)=>n+r.value,0)),minFee=(s.robot&&!t.paidRobot?(s.future?70:80):60)+Layout.fee(s.dining);const missing=Math.max(0,1-s.inventory.noodles)*2+Math.max(0,1-s.inventory.greens);const viable=s.cash>=minFee+missing||s.cash+assetValue>=minFee+3;return {viable,cash:s.cash,assetValue,netAssets:round(s.cash+assetValue),minimumOpening:minFee,minimumMeal:missing,rows};}
   function liquidate(s,reason='全额回收资产后仍不足最低开店费用与基础餐食'){const t=ensure(s);if(t.terminal)return {ok:true,final:t.final};if(!['prep','report'].includes(s.phase))return reply(false,'等待已承接订单和配送结清后再检查破产。');if(solvency(s).viable)return reply(false,'当前资产仍可支持最低成本营业，无需破产清算。');const before=s.cash,rows=assets(s);if(rows.length)sellAssets(s,rows.map(r=>r.id));t.terminal=true;t.final={day:s.day,reason,cashBefore:before,rows,proceeds:round(s.cash-before),finalCash:s.cash,totalRevenue:t.totalRevenue,served:s.totalServed,completedDays:t.completedDays};s.paused=false;return {ok:true,final:t.final};}
   function summary(s){const t=ensure(s);return {...t,neighbors:NAMES.map((name,index)=>({name,served:t.localServed,required:(index+1)*3,unlocked:t.localServed>=(index+1)*3})),reservationCap:Math.min(3,Math.floor(t.localServed/3)),solvency:solvency(s),assets:assets(s)};}
   function valid(s){

@@ -9,7 +9,7 @@ export const PLACES={
   'town-river':{name:'南岸 · 镇民广场',target:[0,1,30],offset:[23,26,32],size:38,copy:'穿过老街双桥抵达广场、喷泉、图书馆与诊所，沿河岸公园散步。'},
   overview:{name:'春日里 · 科技美食街区',target:[0,1,3],offset:[31,31,39],size:37,copy:'中央厨房备料 → 机器人小店出餐 → 三片街区配送。点击建筑或上方地点切换镜头。'},
   front:{name:'好好炒粉 · 街角一号店',target:[0,1,1],offset:[10,9,14],size:12.8,copy:'顾客到店等位，落座点单，机器人送餐。用餐后清桌，座位重新开放。'},
-  dining:{name:'花园堂食区 · 四桌八座',target:[-1,1,5.8],offset:[8,8,12],size:10,copy:'接待入座后点单，小满机器人送餐收款；用餐结束后，清理空碗才能再次接客。',action:'dining',button:'接待与清桌 →'},
+  dining:{name:'花园堂食区 · 可扩建露台',target:[1,1,5.8],offset:[8,8,12],size:14,copy:'接待入座后点单，小满机器人送餐收款；用餐结束后，清理空碗才能再次接客。',action:'dining',button:'接待与清桌 →'},
   kitchen:{name:'机器人后厨',target:[0,1,-.3],offset:[-1,13,8],size:10.5,copy:'AI 识别与排单，机器人按订单配方炒粉。顾客取餐与外卖装机使用同一套出餐流程。'},
   logistics:{name:'中央厨房 · 智慧仓储',target:[-13,1,-6.5],offset:[9,9,13],size:13,copy:'冷藏仓、原料货架、传送带和起降坪。营业时从物流控制台呼叫补货，无人机在这里装货。',action:'district-kitchen',button:'仓储与补给 →'},
   park:{name:'科技园 · AI 创客中心',target:[12,1,-7],offset:[10,10,14],size:14,copy:'办公楼、智能收餐柜与屋顶能源设备。科技园外卖航线的实际终点。',action:'district-park',button:'科技园午餐委托 →'},
@@ -30,7 +30,7 @@ function streetDetails(world){const g=group(world,'街区生活设施');
   for(const x of [-16.8,-11.2])bench(g,x,2.9);planter(g,-14,3.3,2.4,.5);for(let i=0;i<7;i++)box(g,1.25,.025,.6,-14,-.2,-2-i*.42,M.stoneLight,.03);for(let i=0;i<5;i++)box(g,1.3,.025,.6,-14,-.2,4+i*.42,M.stoneLight,.03);
   for(const [x,z] of [[-18,-3],[-10,-10],[6,-9],[18,-8],[18,4]]){box(g,1.4,.04,1.1,x,-.2,z,M.leaf,.12);for(let i=0;i<12;i++){const dx=(rnd()-.5),dz=(rnd()-.5)*.8;sphere(g,.09,x+dx,-.08,z+dz,i%3?M.leafLight:M.pink,[1,.7,1]);}}
   const van=group(g,'中央厨房冷链小货车',-10,.12,-8.8);box(van,1.3,.85,2.1,0,.7,0,M.robotTrim,.12);box(van,1.3,.7,1,0,.6,1.4,M.tileDark,.12);box(van,1.1,.4,.035,0,.8,1.93,M.screen,.04);for(const x of [-.68,.68])for(const z of [-.65,1.45]){const wheel=cyl(van,.25,.15,x,.22,z,M.rubber);wheel.rotation.z=Math.PI/2;}label(van,'中央厨房',.95,.24,0,.7,-1.06,{color:'#52795e'});for(const x of [-.45,.45])box(van,.24,.12,.03,x,.49,1.96,M.amber);
-  const robot=group(g,'社区地面配送机器人',7.7,.1,7.1);box(robot,.65,.62,.8,0,.44,0,M.robotTrim,.13);box(robot,.53,.19,.035,0,.61,.42,M.screen,.04);for(const x of [-.16,.16])sphere(robot,.035,x,.62,.45,M.cyan);for(const x of [-.32,.32])for(const z of [-.25,.25]){const w=cyl(robot,.13,.09,x,.15,z,M.rubber);w.rotation.z=Math.PI/2;}cyl(robot,.016,.7,0,1.05,0,M.iron);box(robot,.24,.16,.02,.09,1.37,0,M.red,.015);
+  const robot=group(g,'社区地面配送机器人',18.4,.1,6.8);box(robot,.65,.62,.8,0,.44,0,M.robotTrim,.13);box(robot,.53,.19,.035,0,.61,.42,M.screen,.04);for(const x of [-.16,.16])sphere(robot,.035,x,.62,.45,M.cyan);for(const x of [-.32,.32])for(const z of [-.25,.25]){const w=cyl(robot,.13,.09,x,.15,z,M.rubber);w.rotation.z=Math.PI/2;}cyl(robot,.016,.7,0,1.05,0,M.iron);box(robot,.24,.16,.02,.09,1.37,0,M.red,.015);
   const kiosk=group(g,'河畔咖啡推车',2,.05,13.3);box(kiosk,1.5,.75,.75,0,.58,0,M.tileDark,.07);box(kiosk,1.6,.07,.85,0,1.0,0,M.wood);for(const x of [-.64,.64]){cyl(kiosk,.025,1,x,1.5,0,M.iron);for(const z of [-.27,.27]){const w=cyl(kiosk,.18,.07,x,.2,z,M.rubber);w.rotation.z=Math.PI/2;}}box(kiosk,1.9,.12,1.3,0,2.03,0,M.red);label(kiosk,'河畔咖啡',1.2,.23,0,.7,.39,{color:'#f8eac7'});for(const x of [-.4,0,.4])cyl(kiosk,.075,.16,x,1.12,.1,M.cream);
   for(const x of [5.5,10.5])bench(g,x,13.8);
   for(const [x,z] of [[-5.3,11.8],[6.9,11.8]]){cyl(g,.035,1.9,x,.85,z,M.iron);box(g,1.6,.3,.07,x,1.7,z,M.tileDark,.03);label(g,'← 河畔步道',1.4,.23,x,1.71,z+.045,{color:'#fcf1d2'});}
@@ -45,12 +45,6 @@ function community(world){const g=group(world,'创客社区邻里街',13,0,3.5);
   box(g,4.9,.18,1.2,-.3,1.8,1,M.red);for(let i=0;i<8;i++)box(g,.3,.03,1.2,-2.6+i*.65,1.91,1,M.canvas,.005);label(g,'春日便利 · 邻里食堂',4.7,.37,-.3,1.52,1.63,{color:'#fff2ce',bg:'#a45f3f'});for(const x of [-1.9,-.4,1.1])box(g,1.2,1.1,.05,x,.82,.49,M.screen);box(g,1.2,.7,.6,3,.55,2,M.lightwood);label(g,'鲜花',.8,.25,3,.8,2.32,{color:'#69503c'});planter(g,3,2.05,1.2,.5);pad(g,-3,3.1,'社区收餐坪');batch(g);return g;}
 function camp(world){const g=group(world,'江畔营地公园',-13,0,9.5);g.userData={view:'camp',title:'江畔营地 · 河岸与帐篷'};slab(g,9,8,0,0);box(g,8.6,.04,7.5,0,.23,0,grass,.08);for(const [x,z,c] of [[-2,-1,M.red],[1.5,-1.7,M.tileDark]]){const tent=mesh(g,new T.CylinderGeometry(1.25,1.25,2.2,3,1,false,Math.PI/2),c,x,.95,z);tent.rotation.z=Math.PI/2;box(g,2.6,.09,2.6,x,.28,z,M.wood);link(g,[x-1.2,.3,z+1.2],[x,2.17,z],.025,M.darkwood);link(g,[x+1.2,.3,z+1.2],[x,2.17,z],.025,M.darkwood);}
   for(const x of [-1.6,-1.2,-.8,-.4])box(g,.25,.08,1.6,x,.92,1.7,M.wood);for(const z of [1,2.4])box(g,2,.08,.3,-1,.59,z,M.wood);for(const x of [-1.7,-.3])for(const z of [1,2.4])link(g,[x,.25,z],[x,.9,1.7],.045,M.iron);bowl(g,-1,.97,1.7,.17);pad(g,2.8,2.4,'营地收餐坪');for(const [x,z] of [[-3,3],[3,-2.8],[-3.7,-2.4]])compactTree(g,x,z,.9);batch(g);return g;}
-function terrace(world){const g=group(world,'花园堂食餐区');g.userData={view:'dining',title:'花园餐区 · 查看顾客用餐'};slab(g,9,4.5,-.8,6.4);for(let i=0;i<20;i++)box(g,.035,.025,4.3,-5.1+i*.45,.22,6.4,M.darkwood,.005);
-  for(const z of [5.25,7.65])for(const x of [-2.4,.8]){cyl(g,.48,.08,x,1.02,z,M.wood);cyl(g,.065,.73,x,.62,z,M.iron);cyl(g,.3,.04,x,.27,z,M.iron);box(g,.14,.12,.12,x,1.12,z,M.cream);for(let i=0;i<4;i++)link(g,[x-.04+i*.025,1.16,z],[x-.03+i*.025,1.41,z],.007,M.darkwood);for(const side of [-1,1]){const chair=group(g,'堂食座椅',x+side*.83,0,z);box(chair,.45,.07,.45,0,.75,0,M.wood,.04);for(const dx of [-.17,.17])for(const dz of [-.17,.17])link(chair,[dx,.72,dz],[dx,.25,dz],.025,M.iron);box(chair,.055,.44,.47,side*.23,1.01,0,M.tileDark,.03);}}
-  for(const x of [-4.7,3.1]){cyl(g,.04,2.8,x,1.6,8.45,M.iron);}
-  for(let i=0;i<14;i++){const x=-4.7+i*.6,y=2.9-Math.sin(i/13*Math.PI)*.35;sphere(g,.055,x,y,8.45,M.amber);if(i<13)link(g,[x,y,8.45],[x+.6,2.9-Math.sin((i+1)/13*Math.PI)*.35,8.45],.009,M.iron);}
-  for(const x of [-4.5,2.8])planter(g,x,6.5,.5,2.2);const title=label(g,'花园餐区 · 四桌八座',3.4,.38,-.8,.27,8.25,{color:'#496d55',bg:'#f8e9c5'});title.rotation.x=-Math.PI/2;batch(g);return g;}
-
 export function buildDistrict(world){
   const ground=group(world,'春日里完整街区');box(ground,44,.55,35,0,-.65,3,M.stoneDark,.2);box(ground,43.8,.12,34.8,0,-.31,3,grass,.12);
   box(ground,43,.08,3.1,0,-.18,10.2,asphalt,.05);box(ground,2.6,.08,25,-7,-.18,-1,asphalt,.05);for(let x=-20;x<21;x+=2)box(ground,.9,.018,.07,x,-.125,10.2,M.cream,.003);for(let z=-12;z<8;z+=2)box(ground,.07,.018,.9,-7,-.125,z,M.cream,.003);
@@ -62,6 +56,6 @@ export function buildDistrict(world){
   for(const [x,z] of [[-20,-10],[-18,1],[-20,13],[19,13],[20,-10],[5,-11],[19,-1],[3,13],[-2,13]])compactTree(ground,x,z,1.1);
   for(const [x,z] of [[-9,7.7],[-3,12.8],[5,7.7],[17,12.8],[-18,12.8],[4,-10]])lamp(ground,x,z);
   const sign=label(ground,'春日里 · 科技美食街',9,.8,2,.02,13.6,{color:'#657b63'});sign.rotation.x=-Math.PI/2;batch(ground);
-  kitchen(world);park(world);community(world);camp(world);terrace(world);streetDetails(world);
+  kitchen(world);park(world);community(world);camp(world);streetDetails(world);
   return {destinations:DESTINATIONS,places:PLACES};
 }

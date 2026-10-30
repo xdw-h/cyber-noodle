@@ -37,7 +37,7 @@
   Branch.configure(INGREDIENTS, MENU);
   Events.configure(MENU,ROUTES);
   const SUPPLIES = { basic: { name: '米粉青菜包', basket: { noodles: 8, greens: 8 } }, protein: { name: '鸡蛋牛肉包', basket: { egg: 4, beef: 4 } } };
-  const EXTRA_LEDGER = { rewards: 0, aiCost: 0, shipping: 0, repairs: 0, delivered: 0, deliveryRevenue: 0, droneFlights: 0, aiAssignments: 0, late: 0, unfulfilled: 0, plainServed: 0, eggServed: 0, beefServed: 0, districtDelivered:0,districtRewards:0,commissionRewards:0,dineInServed:0, dineInRevenue:0, diningGuests:0, diningAbandoned:0, diningLate:0, tablesCleaned:0 };
+  const EXTRA_LEDGER = { expansionCost:0, rewards: 0, aiCost: 0, shipping: 0, repairs: 0, delivered: 0, deliveryRevenue: 0, droneFlights: 0, aiAssignments: 0, late: 0, unfulfilled: 0, plainServed: 0, eggServed: 0, beefServed: 0, districtDelivered:0,districtRewards:0,commissionRewards:0,dineInServed:0, dineInRevenue:0, diningGuests:0, diningAbandoned:0, diningLate:0, tablesCleaned:0 };
   const clone = value => JSON.parse(JSON.stringify(value));
   const ok = (message) => ({ ok: true, message: message || '' });
   const no = message => ({ ok: false, message });
@@ -144,22 +144,23 @@
     if (!item || !Number.isInteger(price) || price < Math.ceil(item.base * .8) || price > Math.floor(item.base * 1.2)) return no('售价超出了菜单允许范围。');
     s.prices[type] = price; return ok();
   }
+  Dining.configure(openingFees);
   function openingFees(s) {
     const robotExtra = s.robot && s.future ? (s.robotMode === 'turbo' ? 30 : s.robotMode === 'eco' ? -10 : 0) + (s.robotLevel > 1 ? 10 : 0) : 0;
     const aiFee = s.aiMode !== 'manual' ? 12 : 0;
-    const main = (s.robot ? 80 : 60) + robotExtra + aiFee, branch=Branch.fee(s);
-    return {main, branch, total:main+branch, aiFee};
+    const expansionFee=Dining.Layout.fee(s.dining),main = (s.robot ? 80 : 60) + robotExtra + aiFee + expansionFee, branch=Branch.fee(s);
+    return {main, branch, total:main+branch, aiFee, expansionFee};
   }
   function openDay(s) {
     if(Town.ensure(s).terminal)return no('本局已完成破产清算，请开始新游戏。');
     if (s.phase !== 'prep') return no('今天已经开店了。');
     if(Town.ensure(s).branchSold&&s.branch)s.branch.enabled=false;
     if(!Town.solvency(s).viable){Town.liquidate(s);return no('资产回收后仍无法营业，本局已完成清算。');}
-    const {main:fee,total:totalFee,aiFee}=openingFees(s);
+    const {main:fee,total:totalFee,aiFee,expansionFee}=openingFees(s);
     if (s.cash < totalFee) return no(`开店需要预留 ¥${totalFee} 运营费（主店 ¥${fee}，分店 ¥${Branch.fee(s)}），请减少采购或安排分店休息。`);
     if (s.inventory.noodles < 1 || s.inventory.greens < 1) return no('先采购鲜米粉和青菜，再开始营业。');
     Branch.open(s);
-    s.cash -= fee; s.stats.operating += fee; s.stats.aiCost += aiFee; s.phase = 'open'; s.elapsed = 0; s.paused = false;
+    s.cash -= fee; s.stats.operating += fee; s.stats.aiCost += aiFee; s.stats.expansionCost += expansionFee; s.phase = 'open'; s.elapsed = 0; s.paused = false;
     Dining.reset(s);
       s.orders = []; s.current = null; s.arrivalIn = 1.2; s.closingElapsed = 0;
     s.readyDeliveries = []; s.remoteIn = 4; s.weather = s.day % 5 === 0 ? 'storm' : s.day % 3 === 0 ? 'gust' : 'clear';

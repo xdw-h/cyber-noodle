@@ -4,6 +4,6 @@
   "compatibility_date": "2026-10-01",
   "account_id": "086c170c3b804f7e076ae0de7a9038b7",
   "workers_dev": true,
-  "vars": { "ALLOWED_ORIGINS": "https://xdw-h.github.io", "RULE_VERSION": "v052" },
+  "vars": { "ALLOWED_ORIGINS": "https://xdw-h.github.io", "RULE_VERSION": "v060" },
   "d1_databases": [{ "binding": "DB", "database_name": "cyber-noodle-rank", "database_id": "3ed6a1b7-0d29-4809-ac21-a6206858869c", "migrations_dir": "migrations" }]
 }

@@ -3,16 +3,21 @@
   const Routes=typeof module==='object'&&module.exports?require('./travel-routes.js'):globalThis.NoodleTravel;
   const Sources=typeof module==='object'&&module.exports?require('./source-ledger.js'):globalThis.NoodleSources;
   const Relationships=typeof module==='object'&&module.exports?require('./resident-relationships.js'):globalThis.NoodleRelationships;
-  const SEATS=[];
-  for(const z of [5.25,7.65])for(const x of [-2.4,.8])for(const side of [-1,1])SEATS.push({x:x+side*.83,z,facing:side<0?Math.PI/2:-Math.PI/2,tableX:x,tableZ:z});
+  const Layout=typeof module==='object'&&module.exports?require('./dining-layout.js'):globalThis.NoodleDiningLayout;
+  const {SEATS}=Layout;
+  let openingFees;
+  const configure=fn=>{openingFees=fn;};
   const HOME=[-.65,3.5],EXIT=[[-.65,4.05],...Routes.exit()],POLICIES=['balanced','serve','clean'];
   const result=(ok,message)=>({ok,message});
   const stamp=s=>s.elapsed+(s.closingElapsed||0);
   const queueTarget=(i,j=0)=>i<3?[-2.4-j*.55,1.85+i*.9]:[-4.5-j*.55,1.85+(i-2)*.9];
-  function create(enabled=false){return {enabled,autoSeat:true,autoClean:true,allowSharing:true,policy:'balanced',serverLevel:1,sequence:0,parties:[],readyMeals:[],tables:Array.from({length:4},(_,i)=>({id:i,seats:[null,null],dirty:[false,false],cleaning:false,requested:false,dirtyAt:0})),server:{x:HOME[0],z:HOME[1],facing:Math.PI,phase:'idle',job:null,path:[],timer:0,load:null},journal:[],departed:0};}
+  const table=id=>({id,seats:[null,null],dirty:[false,false],cleaning:false,requested:false,dirtyAt:0});
+  function create(enabled=false,expansionLevel=0){return {enabled,expansionLevel,autoSeat:true,autoClean:true,allowSharing:true,policy:'balanced',serverLevel:1,sequence:0,parties:[],readyMeals:[],tables:Array.from({length:Layout.LEVELS[expansionLevel].tables},(_,i)=>table(i)),server:{x:HOME[0],z:HOME[1],facing:Math.PI,phase:'idle',job:null,path:[],timer:0,load:null},journal:[],departed:0};}
   function ensure(s){if(!s.dining)s.dining=create(!!s.future);return s.dining;}
-  function valid(d){return !!d&&typeof d==='object'&&!Array.isArray(d)&&['enabled','autoSeat','autoClean','allowSharing'].every(k=>typeof d[k]==='boolean')&&POLICIES.includes(d.policy)&&[1,2].includes(d.serverLevel);}
-  function reset(s){const old=ensure(s),d=create(old.enabled);for(const k of ['autoSeat','autoClean','allowSharing','policy','serverLevel'])d[k]=old[k];s.dining=d;return d;}
+  function valid(d){const level=Layout.level(d);return !!d&&typeof d==='object'&&!Array.isArray(d)&&(d.expansionLevel===undefined||d.expansionLevel!==null)&&Number.isInteger(level)&&level>=0&&level<=2&&(d.enabled||level===0)&&['enabled','autoSeat','autoClean','allowSharing'].every(k=>typeof d[k]==='boolean')&&POLICIES.includes(d.policy)&&[1,2].includes(d.serverLevel)&&Array.isArray(d.tables)&&d.tables.length===Layout.LEVELS[level].tables&&d.tables.every((t,i)=>t&&t.id===i&&Array.isArray(t.seats)&&t.seats.length===2&&Array.isArray(t.dirty)&&t.dirty.length===2);}
+  function reset(s){const old=ensure(s),d=create(old.enabled,Layout.level(old));for(const k of ['autoSeat','autoClean','allowSharing','policy','serverLevel'])d[k]=old[k];s.dining=d;return d;}
+  function expansion(s){const d=ensure(s),level=Layout.level(d),next=Layout.LEVELS[level+1],fee=Layout.fee(d),reserve=next&&openingFees?openingFees(s).total-fee+next.fee:0;let reason='';if(!d.enabled)reason='请先进入机器人小镇经营。';else if(s.town?.terminal)reason='本局已完成清算，请重新开始。';else if(!next)reason='露台已扩建至八桌十六座。';else if(s.phase!=='prep')reason='请在营业前扩建，避免影响正在用餐的顾客。';else if(s.cash<next.cost+reserve)reason=`需 ¥${next.cost} 投资，并保留 ¥${reserve} 开门费用，还差 ¥${Math.ceil(next.cost+reserve-s.cash)}。`;return {level,tables:d.tables.length,capacity:d.tables.length*2,fee,next:next?{...next,level:level+1,capacity:next.tables*2}:null,reserve,canExpand:!reason,reason};}
+  function expand(s,expectedLevel){const d=ensure(s),info=expansion(s);if(!Number.isInteger(expectedLevel)||expectedLevel!==info.level+1)return result(false,'扩建阶段已变化，请刷新后选择下一阶段。');if(!info.canExpand)return result(false,info.reason);s.cash-=info.next.cost;s.stats.equipment+=info.next.cost;d.expansionLevel=expectedLevel;while(d.tables.length<info.next.tables)d.tables.push(table(d.tables.length));note(s,`露台扩建为 ${d.tables.length} 桌 ${d.tables.length*2} 座`);return result(true,`扩建完成：${d.tables.length} 桌 ${d.tables.length*2} 座，每日扩建维护费 ¥${info.next.fee}。`);}
   function note(s,text){const d=ensure(s);d.journal.unshift({second:Math.floor(stamp(s)),text});d.journal=d.journal.slice(0,8);}
   function phase(p,next){p.phase=next;p.timer=0;for(const m of p.members)m.phaseTime=0;}
   function move(m,target,dt,speed=3.2){const dx=target[0]-m.x,dz=target[1]-m.z,d=Math.hypot(dx,dz),distance=Math.min(d,dt*speed);if(d>.001){m.x+=dx/d*distance;m.z+=dz/d*distance;m.facing=Math.atan2(dx,dz);m.walk=(m.walk||0)+distance;}return d<=distance+.001;}
@@ -95,7 +100,7 @@
     for(const p of d.parties){if(p.phase==='leaving'||p.phase==='eating'||p.phase==='standing')continue;for(const m of p.members)if(!m.paid&&!keep.has(m.orderId)){if(m.orderId)s.stats.unfulfilled++;m.cancelled=true;}if(p.members.every(m=>m.cancelled&&!m.paid))release(s,p);else if(['seating','sitting','ordering'].includes(p.phase))phase(p,'waitingMeal');}
   }
   function hasWork(s){const d=ensure(s);return d.enabled&&(d.parties.length>0||d.readyMeals.length>0||!!d.server.job||d.tables.some(t=>t.dirty.some(Boolean)));}
-  function counts(s){const d=ensure(s);return {queue:d.parties.filter(p=>['arriving','reception'].includes(p.phase)).reduce((n,p)=>n+p.size,0),seated:d.parties.filter(p=>['sitting','ordering','waitingMeal','eating','standing'].includes(p.phase)).reduce((n,p)=>n+p.size,0),occupied:d.tables.reduce((n,t)=>n+t.seats.filter(x=>x!==null).length,0),dirty:d.tables.reduce((n,t)=>n+t.dirty.filter(Boolean).length,0),capacity:8,waitingMeals:d.readyMeals.length,departed:d.departed};}
+  function counts(s){const d=ensure(s);return {queue:d.parties.filter(p=>['arriving','reception'].includes(p.phase)).reduce((n,p)=>n+p.size,0),seated:d.parties.filter(p=>['sitting','ordering','waitingMeal','eating','standing'].includes(p.phase)).reduce((n,p)=>n+p.size,0),occupied:d.tables.reduce((n,t)=>n+t.seats.filter(x=>x!==null).length,0),dirty:d.tables.reduce((n,t)=>n+t.dirty.filter(Boolean).length,0),capacity:d.tables.length*2,waitingMeals:d.readyMeals.length,departed:d.departed};}
   function people(s){const d=ensure(s);return d.parties.flatMap(p=>p.members.map(m=>({...m,phase:p.phase==='reception'?'queue':p.phase==='seating'?'toSeat':p.phase,group:p.kind,partyId:p.id,ready:m.paid,waiting:p.phase==='waitingMeal',mood:['arriving','reception'].includes(p.phase)&&p.age>p.patience*.65||p.phase==='waitingMeal'&&p.timer>18?'impatient':p.phase==='eating'?'happy':'calm'})));}
-  return {SEATS,queueTarget,create,ensure,valid,reset,arrive,seatParty,ready,cancelOrder,requestClean,setPolicy,toggle,upgradeServer,step,close,hasWork,counts,people};
+  return {Layout,SEATS,configure,expansion,expand,queueTarget,create,ensure,valid,reset,arrive,seatParty,ready,cancelOrder,requestClean,setPolicy,toggle,upgradeServer,step,close,hasWork,counts,people};
 });
