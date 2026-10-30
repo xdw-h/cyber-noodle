@@ -1,6 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.NoodleDining=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
   const Routes=typeof module==='object'&&module.exports?require('./travel-routes.js'):globalThis.NoodleTravel;
+  const Sources=typeof module==='object'&&module.exports?require('./source-ledger.js'):globalThis.NoodleSources;
   const SEATS=[];
   for(const z of [5.25,7.65])for(const x of [-2.4,.8])for(const side of [-1,1])SEATS.push({x:x+side*.83,z,facing:side<0?Math.PI/2:-Math.PI/2,tableX:x,tableZ:z});
   const HOME=[-.65,3.5],EXIT=[[-.65,4.05],...Routes.exit()],POLICIES=['balanced','serve','clean'];
@@ -17,11 +18,11 @@
   function follow(m,dt,speed){if(!m.path.length)return true;if(move(m,m.path[0],dt,speed))m.path.shift();return !m.path.length;}
   function arrive(s,offer,kind){
     const d=ensure(s);if(!d.enabled||s.phase!=='open')return null;
-    if(d.parties.filter(p=>['arriving','reception'].includes(p.phase)).length>=5){s.stats.lost++;s.stats.diningAbandoned++;return null;}
+    if(d.parties.filter(p=>['arriving','reception'].includes(p.phase)).length>=5){s.stats.lost++;s.stats.diningAbandoned++;Sources.lost(s,offer,'queue');return null;}
     const id=++d.sequence;kind=kind||['solo','friends','family','solo'][(id-1)%4];if(!['solo','friends','family'].includes(kind))return null;
     const size=kind==='solo'?1:2,p={id,kind,size,table:null,phase:'arriving',timer:0,age:0,patience:offer.patience+8,offer:{...offer},members:[]};
     for(let i=0;i<size;i++){const child=kind==='family'&&i===1,type=i===1?'egg':offer.type,entry=Routes.enter(i);p.members.push({id:id*10+i,profile:i===1?0:offer.person||0,name:child?'小朋友':i?'同伴':offer.customer||'食客',child,type,orderId:null,paid:false,cancelled:false,seat:null,phaseTime:0,x:entry[0][0],z:entry[0][1],facing:0,walk:0,path:entry.slice(1)});}
-    d.parties.push(p);s.stats.diningGuests+=size;return p;
+    for(const m of p.members)m.sourceId=Sources.demand(s,Sources.classify(offer));d.parties.push(p);s.stats.diningGuests+=size;return p;
   }
   function freeSlots(s,t,size){const d=ensure(s);if(t.cleaning||!d.allowSharing&&(t.seats.some(x=>x!==null)||t.dirty.some(Boolean)))return [];return t.seats.map((v,i)=>v===null&&!t.dirty[i]?i:-1).filter(i=>i>=0).slice(0,size);}
   function seatParty(s,id,tableId){
@@ -65,14 +66,14 @@
     }
   }
   function placeOrders(s,p){
-    for(const m of p.members){if(m.cancelled)continue;m.orderId=++s.sequence;const o={...p.offer,id:m.orderId,type:m.type,person:m.profile,customer:m.name,price:s.prices[m.type],channel:'dinein',partyId:p.id,memberId:m.id,tableId:p.table,status:'waiting',age:0,patience:p.offer.patience+10,diningAt:stamp(s),tags:[`${p.table+1}号桌`,p.kind==='family'?'亲子同桌':p.kind==='friends'?'结伴同桌':'堂食']};s.orders.push(o);}phase(p,'waitingMeal');note(s,`${p.table+1} 号桌已点 ${p.size} 份炒粉`);
+    for(const m of p.members){if(m.cancelled)continue;m.orderId=++s.sequence;const o={...p.offer,sourceId:m.sourceId,id:m.orderId,type:m.type,person:m.profile,customer:m.name,price:s.prices[m.type],channel:'dinein',partyId:p.id,memberId:m.id,tableId:p.table,status:'waiting',age:0,patience:p.offer.patience+10,diningAt:stamp(s),tags:[`${p.table+1}号桌`,p.kind==='family'?'亲子同桌':p.kind==='friends'?'结伴同桌':'堂食']};s.orders.push(o);}phase(p,'waitingMeal');note(s,`${p.table+1} 号桌已点 ${p.size} 份炒粉`);
   }
   function step(s,dt,onServed){
     const d=ensure(s);if(!d.enabled)return;
     const reception=d.parties.filter(p=>['arriving','reception'].includes(p.phase));
     for(const p of [...d.parties]){
       p.timer+=dt;p.age+=dt;p.members.forEach(m=>m.phaseTime+=dt);
-      if(['arriving','reception'].includes(p.phase)&&p.age>p.patience){s.stats.lost+=p.size;s.stats.diningAbandoned+=p.size;s.reputation=Math.max(0,Math.round((s.reputation-p.size*.8)*100)/100);note(s,`${p.size} 位客人等位过久离开`);release(s,p);continue;}
+      if(['arriving','reception'].includes(p.phase)&&p.age>p.patience){for(const m of p.members)Sources.lost(s,m,'timeout');s.stats.lost+=p.size;s.stats.diningAbandoned+=p.size;s.reputation=Math.max(0,Math.round((s.reputation-p.size*.8)*100)/100);note(s,`${p.size} 位客人等位过久离开`);release(s,p);continue;}
       if(p.phase==='arriving'){if(p.members.map(m=>follow(m,dt)).every(Boolean))phase(p,'reception');}
       else if(p.phase==='reception'){
         const i=reception.indexOf(p);const at=p.members.map((m,j)=>move(m,queueTarget(i,j),dt,2.6)).every(Boolean);p.members.forEach(m=>{if(at)m.facing=Math.PI;});

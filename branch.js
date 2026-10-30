@@ -50,7 +50,7 @@
         const markup=s.prices[type]/menu[type].base-1;
         if(random(b)<=Math.max(.45,1-markup*1.8)){
           if(b.orders.length<4)b.orders.push({id:++b.sequence,type,price:s.prices[type],age:0,shortageSeen:false});else b.stats.lost++;
-        }
+        }else if(s.sourceLedger)b.stats.lost++;
         b.arrivalIn=site.interval*(.9+random(b)*.2);
       }
       if(!b.current){
@@ -64,7 +64,7 @@
       if(b.current.progress+.000001>=b.current.duration){const o=b.current;s.cash=money(s.cash+o.price);b.stats.revenue=money(b.stats.revenue+o.price);b.stats.served++;b.totalServed++;b.receipts.unshift({id:o.id,type:o.type,price:o.price});b.receipts=b.receipts.slice(0,6);b.current=null;}
     }
   }
-  function close(s){const b=ensure(s);if(b)b.orders=[];}
+  function close(s){const b=ensure(s);if(b){if(s.sourceLedger)b.stats.lost+=b.orders.length;b.orders=[];}}
   function hasWork(s){return !!ensure(s)?.current;}
   function settle(s){
     const b=ensure(s);if(!b||b.lastReport?.day===s.day)return;
